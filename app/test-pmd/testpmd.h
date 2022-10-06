@@ -334,9 +334,7 @@ extern uint32_t burst_tx_retry_num;
 
 extern struct fwd_engine rx_only_engine;
 #ifdef RTE_LIBRTE_IEEE1588
-extern struct fwd_engine ieee1588_fwd_engine;
 #endif
-extern struct fwd_engine shared_rxq_engine;
 
 extern struct fwd_engine * fwd_engines[]; /**< NULL terminated array. */
 extern cmdline_parse_inst_t cmd_set_raw;

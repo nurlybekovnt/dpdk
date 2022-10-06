@@ -177,9 +177,7 @@ streamid_t nb_fwd_streams;       /**< Is equal to (nb_ports * nb_rxq). */
 struct fwd_engine * fwd_engines[] = {
 	&rx_only_engine,
 #ifdef RTE_LIBRTE_IEEE1588
-	&ieee1588_fwd_engine,
 #endif
-	&shared_rxq_engine,
 	NULL,
 };
 

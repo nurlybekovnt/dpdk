@@ -12,10 +12,8 @@ sources = files(
         'cmdline_tm.c',
         'cmd_flex_item.c',
         'config.c',
-        'ieee1588fwd.c',
         'parameters.c',
         'rxonly.c',
-        'shared_rxq_fwd.c',
         'testpmd.c',
         'util.c',
 )
