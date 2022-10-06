@@ -92,7 +92,6 @@ int testpmd_logtype; /**< Log type for testpmd logs */
 /* use main core for command line ? */
 uint8_t interactive = 0;
 uint8_t auto_start = 0;
-uint8_t tx_first;
 char cmdline_filename[PATH_MAX] = {0};
 
 /*
@@ -176,16 +175,7 @@ streamid_t nb_fwd_streams;       /**< Is equal to (nb_ports * nb_rxq). */
  * Forwarding engines.
  */
 struct fwd_engine * fwd_engines[] = {
-	&io_fwd_engine,
-	&mac_fwd_engine,
-	&mac_swap_engine,
-	&flow_gen_engine,
 	&rx_only_engine,
-	&tx_only_engine,
-	&csum_fwd_engine,
-	&icmp_echo_engine,
-	&noisy_vnf_engine,
-	&five_tuple_swap_fwd_engine,
 #ifdef RTE_LIBRTE_IEEE1588
 	&ieee1588_fwd_engine,
 #endif
@@ -197,7 +187,7 @@ struct rte_mempool *mempools[RTE_MAX_NUMA_NODES * MAX_SEGS_BUFFER_SPLIT];
 uint16_t mempool_flags;
 
 struct fwd_config cur_fwd_config;
-struct fwd_engine *cur_fwd_eng = &io_fwd_engine; /**< IO mode by default. */
+struct fwd_engine *cur_fwd_eng = &rx_only_engine; /**< RX only mode by default. */
 uint32_t retry_enabled;
 uint32_t burst_tx_delay_time = BURST_TX_WAIT_US;
 uint32_t burst_tx_retry_num = BURST_TX_RETRIES;
@@ -1935,18 +1925,7 @@ fwd_stream_stats_display(streamid_t stream_id)
 	       " TX-dropped: %-14"PRIu64,
 	       fs->rx_packets, fs->tx_packets, fs->fwd_dropped);
 
-	/* if checksum mode */
-	if (cur_fwd_eng == &csum_fwd_engine) {
-		printf("  RX- bad IP checksum: %-14"PRIu64
-		       "  Rx- bad L4 checksum: %-14"PRIu64
-		       " Rx- bad outer L4 checksum: %-14"PRIu64"\n",
-			fs->rx_bad_ip_csum, fs->rx_bad_l4_csum,
-			fs->rx_bad_outer_l4_csum);
-		printf(" RX- bad outer IP checksum: %-14"PRIu64"\n",
-			fs->rx_bad_outer_ip_csum);
-	} else {
-		printf("\n");
-	}
+	printf("\n");
 
 	if (record_burst_stats) {
 		pkt_burst_stats_display("RX", &fs->rx_burst_stats);
@@ -2032,16 +2011,6 @@ fwd_stats_display(void)
 		       "RX-total: %-"PRIu64"\n", stats.ipackets, stats.imissed,
 		       stats.ipackets + stats.imissed);
 
-		if (cur_fwd_eng == &csum_fwd_engine) {
-			printf("  Bad-ipcsum: %-14"PRIu64
-			       " Bad-l4csum: %-14"PRIu64
-			       "Bad-outer-l4csum: %-14"PRIu64"\n",
-			       ports_stats[pt_id].rx_bad_ip_csum,
-			       ports_stats[pt_id].rx_bad_l4_csum,
-			       ports_stats[pt_id].rx_bad_outer_l4_csum);
-			printf("  Bad-outer-ipcsum: %-14"PRIu64"\n",
-			       ports_stats[pt_id].rx_bad_outer_ip_csum);
-		}
 		if (stats.ierrors + stats.rx_nombuf > 0) {
 			printf("  RX-error: %-"PRIu64"\n", stats.ierrors);
 			printf("  RX-nombufs: %-14"PRIu64"\n", stats.rx_nombuf);
@@ -2229,23 +2198,6 @@ start_pkt_forward_on_core(void *fwd_arg)
 }
 
 /*
- * Run the TXONLY packet forwarding engine to send a single burst of packets.
- * Used to start communication flows in network loopback test configurations.
- */
-static int
-run_one_txonly_burst_on_core(void *fwd_arg)
-{
-	struct fwd_lcore *fwd_lc;
-	struct fwd_lcore tmp_lcore;
-
-	fwd_lc = (struct fwd_lcore *) fwd_arg;
-	tmp_lcore = *fwd_lc;
-	tmp_lcore.stopped = 1;
-	run_pkt_fwd_on_lcore(&tmp_lcore, tx_only_engine.packet_fwd);
-	return 0;
-}
-
-/*
  * Launch packet forwarding:
  *     - Setup per-port forwarding context.
  *     - launch logical cores with their forwarding configuration.
@@ -2275,10 +2227,9 @@ launch_packet_forwarding(lcore_function_t *pkt_fwd_on_lcore)
  * Launch packet forwarding configuration.
  */
 void
-start_packet_forwarding(int with_tx_first)
+start_packet_forwarding(void)
 {
 	port_fwd_begin_t port_fwd_begin;
-	port_fwd_end_t  port_fwd_end;
 	unsigned int i;
 
 	if (strcmp(cur_fwd_eng->fwd_mode_name, "rxonly") == 0 && !nb_rxq)
@@ -2320,19 +2271,6 @@ start_packet_forwarding(int with_tx_first)
 		}
 	}
 
-	if (with_tx_first) {
-		port_fwd_begin = tx_only_engine.port_fwd_begin;
-		if (port_fwd_begin != NULL) {
-			for (i = 0; i < cur_fwd_config.nb_fwd_ports; i++) {
-				if (port_fwd_begin(fwd_ports_ids[i])) {
-					fprintf(stderr,
-						"Packet forwarding is not ready\n");
-					return;
-				}
-			}
-		}
-	}
-
 	test_done = 0;
 
 	if(!no_flush_rx)
@@ -2341,18 +2279,6 @@ start_packet_forwarding(int with_tx_first)
 	rxtx_config_display();
 
 	fwd_stats_reset();
-	if (with_tx_first) {
-		while (with_tx_first--) {
-			launch_packet_forwarding(
-					run_one_txonly_burst_on_core);
-			rte_eal_mp_wait_lcore();
-		}
-		port_fwd_end = tx_only_engine.port_fwd_end;
-		if (port_fwd_end != NULL) {
-			for (i = 0; i < cur_fwd_config.nb_fwd_ports; i++)
-				(*port_fwd_end)(fwd_ports_ids[i]);
-		}
-	}
 	launch_packet_forwarding(start_pkt_forward_on_core);
 }
 
@@ -3520,7 +3446,7 @@ rmv_port_callback(void *arg)
 		detach_device(device); /* might be already removed or have more ports */
 	}
 	if (need_to_start)
-		start_packet_forwarding(0);
+		start_packet_forwarding();
 }
 
 /* This function is used by the interrupt thread */
@@ -4167,16 +4093,6 @@ main(int argc, char** argv)
 	}
 #endif
 
-	if (tx_first && interactive)
-		rte_exit(EXIT_FAILURE, "--tx-first cannot be used on "
-				"interactive mode.\n");
-
-	if (tx_first && lsc_interrupt) {
-		fprintf(stderr,
-			"Warning: lsc_interrupt needs to be off when using tx_first. Disabling.\n");
-		lsc_interrupt = 0;
-	}
-
 	if (!nb_rxq && !nb_txq)
 		fprintf(stderr,
 			"Warning: Either rx or tx queues should be non-zero\n");
@@ -4258,7 +4174,7 @@ main(int argc, char** argv)
 	if (interactive == 1) {
 		if (auto_start) {
 			printf("Start automatic packet forwarding\n");
-			start_packet_forwarding(0);
+			start_packet_forwarding();
 		}
 		prompt();
 		pmd_test_exit();
@@ -4271,7 +4187,7 @@ main(int argc, char** argv)
 		f_quit = 0;
 
 		printf("No commandline core given, start packet forwarding\n");
-		start_packet_forwarding(tx_first);
+		start_packet_forwarding();
 		if (stats_period != 0) {
 			uint64_t prev_time = 0, cur_time, diff_time = 0;
 			uint64_t timer_period;

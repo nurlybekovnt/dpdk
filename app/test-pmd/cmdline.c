@@ -7733,7 +7733,7 @@ static void cmd_start_parsed(__rte_unused void *parsed_result,
 			     __rte_unused struct cmdline *cl,
 			     __rte_unused void *data)
 {
-	start_packet_forwarding(0);
+	start_packet_forwarding();
 }
 
 cmdline_parse_inst_t cmd_start = {
@@ -7742,79 +7742,6 @@ cmdline_parse_inst_t cmd_start = {
 	.help_str = "start: Start packet forwarding",
 	.tokens = {
 		(void *)&cmd_start_start,
-		NULL,
-	},
-};
-
-/* *** START FORWARDING WITH ONE TX BURST FIRST *** */
-struct cmd_start_tx_first_result {
-	cmdline_fixed_string_t start;
-	cmdline_fixed_string_t tx_first;
-};
-
-static void
-cmd_start_tx_first_parsed(__rte_unused void *parsed_result,
-			  __rte_unused struct cmdline *cl,
-			  __rte_unused void *data)
-{
-	start_packet_forwarding(1);
-}
-
-cmdline_parse_token_string_t cmd_start_tx_first_start =
-	TOKEN_STRING_INITIALIZER(struct cmd_start_tx_first_result, start,
-				 "start");
-cmdline_parse_token_string_t cmd_start_tx_first_tx_first =
-	TOKEN_STRING_INITIALIZER(struct cmd_start_tx_first_result,
-				 tx_first, "tx_first");
-
-cmdline_parse_inst_t cmd_start_tx_first = {
-	.f = cmd_start_tx_first_parsed,
-	.data = NULL,
-	.help_str = "start tx_first: Start packet forwarding, "
-		"after sending 1 burst of packets",
-	.tokens = {
-		(void *)&cmd_start_tx_first_start,
-		(void *)&cmd_start_tx_first_tx_first,
-		NULL,
-	},
-};
-
-/* *** START FORWARDING WITH N TX BURST FIRST *** */
-struct cmd_start_tx_first_n_result {
-	cmdline_fixed_string_t start;
-	cmdline_fixed_string_t tx_first;
-	uint32_t tx_num;
-};
-
-static void
-cmd_start_tx_first_n_parsed(void *parsed_result,
-			  __rte_unused struct cmdline *cl,
-			  __rte_unused void *data)
-{
-	struct cmd_start_tx_first_n_result *res = parsed_result;
-
-	start_packet_forwarding(res->tx_num);
-}
-
-cmdline_parse_token_string_t cmd_start_tx_first_n_start =
-	TOKEN_STRING_INITIALIZER(struct cmd_start_tx_first_n_result,
-			start, "start");
-cmdline_parse_token_string_t cmd_start_tx_first_n_tx_first =
-	TOKEN_STRING_INITIALIZER(struct cmd_start_tx_first_n_result,
-			tx_first, "tx_first");
-cmdline_parse_token_num_t cmd_start_tx_first_n_tx_num =
-	TOKEN_NUM_INITIALIZER(struct cmd_start_tx_first_n_result,
-			tx_num, RTE_UINT32);
-
-cmdline_parse_inst_t cmd_start_tx_first_n = {
-	.f = cmd_start_tx_first_n_parsed,
-	.data = NULL,
-	.help_str = "start tx_first <num>: "
-		"packet forwarding, after sending <num> bursts of packets",
-	.tokens = {
-		(void *)&cmd_start_tx_first_n_start,
-		(void *)&cmd_start_tx_first_n_tx_first,
-		(void *)&cmd_start_tx_first_n_tx_num,
 		NULL,
 	},
 };
@@ -17688,8 +17615,6 @@ cmdline_parse_ctx_t main_ctx[] = {
 	(cmdline_parse_inst_t *)&cmd_showcfg,
 	(cmdline_parse_inst_t *)&cmd_showfwdall,
 	(cmdline_parse_inst_t *)&cmd_start,
-	(cmdline_parse_inst_t *)&cmd_start_tx_first,
-	(cmdline_parse_inst_t *)&cmd_start_tx_first_n,
 	(cmdline_parse_inst_t *)&cmd_set_link_up,
 	(cmdline_parse_inst_t *)&cmd_set_link_down,
 	(cmdline_parse_inst_t *)&cmd_reset,

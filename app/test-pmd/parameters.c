@@ -751,11 +751,6 @@ launch_args_parse(int argc, char** argv)
 				printf("Auto-start selected\n");
 				auto_start = 1;
 			}
-			if (!strcmp(lgopts[opt_idx].name, "tx-first")) {
-				printf("Ports to start sending a burst of "
-						"packets first\n");
-				tx_first = 1;
-			}
 			if (!strcmp(lgopts[opt_idx].name, "stats-period")) {
 				char *end = NULL;
 				unsigned int n;
@@ -805,55 +800,6 @@ launch_args_parse(int argc, char** argv)
 				nb_peer_eth_addrs++;
 			}
 #endif
-			if (!strcmp(lgopts[opt_idx].name, "tx-ip")) {
-				struct in_addr in;
-				char *end;
-
-				end = strchr(optarg, ',');
-				if (end == optarg || !end)
-					rte_exit(EXIT_FAILURE,
-						 "Invalid tx-ip: %s", optarg);
-
-				*end++ = 0;
-				if (inet_pton(AF_INET, optarg, &in) == 0)
-					rte_exit(EXIT_FAILURE,
-						 "Invalid source IP address: %s\n",
-						 optarg);
-				tx_ip_src_addr = rte_be_to_cpu_32(in.s_addr);
-
-				if (inet_pton(AF_INET, end, &in) == 0)
-					rte_exit(EXIT_FAILURE,
-						 "Invalid destination IP address: %s\n",
-						 optarg);
-				tx_ip_dst_addr = rte_be_to_cpu_32(in.s_addr);
-			}
-			if (!strcmp(lgopts[opt_idx].name, "tx-udp")) {
-				char *end = NULL;
-
-				errno = 0;
-				n = strtoul(optarg, &end, 10);
-				if (errno != 0 || end == optarg ||
-				    n > UINT16_MAX ||
-				    !(*end == '\0' || *end == ','))
-					rte_exit(EXIT_FAILURE,
-						 "Invalid UDP port: %s\n",
-						 optarg);
-				tx_udp_src_port = n;
-				if (*end == ',') {
-					char *dst = end + 1;
-
-					n = strtoul(dst, &end, 10);
-					if (errno != 0 || end == dst ||
-					    n > UINT16_MAX || *end)
-						rte_exit(EXIT_FAILURE,
-							 "Invalid destination UDP port: %s\n",
-							 dst);
-					tx_udp_dst_port = n;
-				} else {
-					tx_udp_dst_port = n;
-				}
-
-			}
 			if (!strcmp(lgopts[opt_idx].name, "nb-ports")) {
 				n = atoi(optarg);
 				if (n > 0 && n <= nb_ports)
@@ -1398,23 +1344,6 @@ launch_args_parse(int argc, char** argv)
 						 "rx-offloads must be >= 0\n");
 			}
 
-			if (!strcmp(lgopts[opt_idx].name, "vxlan-gpe-port")) {
-				n = atoi(optarg);
-				if (n >= 0)
-					vxlan_gpe_udp_port = (uint16_t)n;
-				else
-					rte_exit(EXIT_FAILURE,
-						 "vxlan-gpe-port must be >= 0\n");
-			}
-			if (!strcmp(lgopts[opt_idx].name,
-				    "geneve-parsed-port")) {
-				n = atoi(optarg);
-				if (n >= 0)
-					geneve_udp_port = (uint16_t)n;
-				else
-					rte_exit(EXIT_FAILURE,
-						 "geneve-parsed-port must be >= 0\n");
-			}
 			if (!strcmp(lgopts[opt_idx].name, "print-event"))
 				if (parse_event_printing_config(optarg, 1)) {
 					rte_exit(EXIT_FAILURE,

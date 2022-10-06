@@ -332,16 +332,7 @@ extern struct flex_pattern flex_patterns[FLEX_MAX_PATTERNS_NUM];
 extern uint32_t burst_tx_delay_time;
 extern uint32_t burst_tx_retry_num;
 
-extern struct fwd_engine io_fwd_engine;
-extern struct fwd_engine mac_fwd_engine;
-extern struct fwd_engine mac_swap_engine;
-extern struct fwd_engine flow_gen_engine;
 extern struct fwd_engine rx_only_engine;
-extern struct fwd_engine tx_only_engine;
-extern struct fwd_engine csum_fwd_engine;
-extern struct fwd_engine icmp_echo_engine;
-extern struct fwd_engine noisy_vnf_engine;
-extern struct fwd_engine five_tuple_swap_fwd_engine;
 #ifdef RTE_LIBRTE_IEEE1588
 extern struct fwd_engine ieee1588_fwd_engine;
 #endif
@@ -385,7 +376,6 @@ extern uint16_t verbose_level; /**< Drives messages being displayed, if any. */
 extern int testpmd_logtype; /**< Log type for testpmd logs */
 extern uint8_t  interactive;
 extern uint8_t  auto_start;
-extern uint8_t  tx_first;
 extern char cmdline_filename[PATH_MAX]; /**< offline commands file */
 extern uint8_t  numa_support; /**< set by "--numa" parameter */
 extern uint16_t port_topology; /**< set by "--port-topology" parameter */
@@ -545,20 +535,11 @@ extern int8_t tx_pthresh;
 extern int8_t tx_hthresh;
 extern int8_t tx_wthresh;
 
-extern uint16_t tx_udp_src_port;
-extern uint16_t tx_udp_dst_port;
-
-extern uint32_t tx_ip_src_addr;
-extern uint32_t tx_ip_dst_addr;
-
 extern struct fwd_config cur_fwd_config;
 extern struct fwd_engine *cur_fwd_eng;
 extern uint32_t retry_enabled;
 extern struct fwd_lcore  **fwd_lcores;
 extern struct fwd_stream **fwd_streams;
-
-extern uint16_t vxlan_gpe_udp_port; /**< UDP port of tunnel VXLAN-GPE. */
-extern uint16_t geneve_udp_port; /**< UDP port of tunnel GENEVE. */
 
 extern portid_t nb_peer_eth_addrs; /**< Number of peer ethernet addresses. */
 extern struct rte_ether_addr peer_eth_addrs[RTE_MAX_ETHPORTS];
@@ -964,7 +945,7 @@ void set_nb_pkt_per_burst(uint16_t pkt_burst);
 char *list_pkt_forwarding_modes(void);
 char *list_pkt_forwarding_retry_modes(void);
 void set_pkt_forwarding_mode(const char *fwd_mode);
-void start_packet_forwarding(int with_tx_first);
+void start_packet_forwarding(void);
 void fwd_stats_display(void);
 void fwd_stats_reset(void);
 void stop_packet_forwarding(void);

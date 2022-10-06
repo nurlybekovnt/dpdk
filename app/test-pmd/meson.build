@@ -2,7 +2,7 @@
 # Copyright(c) 2017 Intel Corporation
 
 # override default name to drop the hyphen
-name = 'testpmd'
+name = 'testpmd-nadir'
 cflags += '-Wno-deprecated-declarations'
 sources = files(
         '5tswap.c',
@@ -12,19 +12,11 @@ sources = files(
         'cmdline_tm.c',
         'cmd_flex_item.c',
         'config.c',
-        'csumonly.c',
-        'flowgen.c',
-        'icmpecho.c',
         'ieee1588fwd.c',
-        'iofwd.c',
-        'macfwd.c',
-        'macswap.c',
-        'noisy_vnf.c',
         'parameters.c',
         'rxonly.c',
         'shared_rxq_fwd.c',
         'testpmd.c',
-        'txonly.c',
         'util.c',
 )
 
