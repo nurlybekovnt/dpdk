@@ -17,7 +17,6 @@
 #include <rte_ip.h>
 #include <rte_flow.h>
 
-#include "macswap_common.h"
 #include "testpmd.h"
 
 

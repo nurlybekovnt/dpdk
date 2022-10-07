@@ -29,10 +29,6 @@ endif
 if dpdk_conf.has('RTE_LIB_BITRATESTATS')
     deps += 'bitratestats'
 endif
-if dpdk_conf.has('RTE_LIB_BPF')
-    sources += files('bpf_cmd.c')
-    deps += 'bpf'
-endif
 if dpdk_conf.has('RTE_LIB_GRO')
     deps += 'gro'
 endif
