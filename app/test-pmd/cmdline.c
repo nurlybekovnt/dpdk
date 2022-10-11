@@ -1194,100 +1194,6 @@ cmdline_parse_inst_t cmd_help_long = {
 	},
 };
 
-
-/* *** start/stop/close all ports *** */
-struct cmd_operate_port_result {
-	cmdline_fixed_string_t keyword;
-	cmdline_fixed_string_t name;
-	cmdline_fixed_string_t value;
-};
-
-static void cmd_operate_port_parsed(void *parsed_result,
-				__rte_unused struct cmdline *cl,
-				__rte_unused void *data)
-{
-	struct cmd_operate_port_result *res = parsed_result;
-
-	if (!strcmp(res->name, "start"))
-		start_port(RTE_PORT_ALL);
-	else if (!strcmp(res->name, "stop"))
-		stop_port(RTE_PORT_ALL);
-	else if (!strcmp(res->name, "close"))
-		close_port(RTE_PORT_ALL);
-	else if (!strcmp(res->name, "reset"))
-		reset_port(RTE_PORT_ALL);
-	else
-		fprintf(stderr, "Unknown parameter\n");
-}
-
-cmdline_parse_token_string_t cmd_operate_port_all_cmd =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_port_result, keyword,
-								"port");
-cmdline_parse_token_string_t cmd_operate_port_all_port =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_port_result, name,
-						"start#stop#close#reset");
-cmdline_parse_token_string_t cmd_operate_port_all_all =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_port_result, value, "all");
-
-cmdline_parse_inst_t cmd_operate_port = {
-	.f = cmd_operate_port_parsed,
-	.data = NULL,
-	.help_str = "port start|stop|close|reset all: Start/Stop/Close/Reset all ports",
-	.tokens = {
-		(void *)&cmd_operate_port_all_cmd,
-		(void *)&cmd_operate_port_all_port,
-		(void *)&cmd_operate_port_all_all,
-		NULL,
-	},
-};
-
-/* *** start/stop/close specific port *** */
-struct cmd_operate_specific_port_result {
-	cmdline_fixed_string_t keyword;
-	cmdline_fixed_string_t name;
-	uint8_t value;
-};
-
-static void cmd_operate_specific_port_parsed(void *parsed_result,
-			__rte_unused struct cmdline *cl,
-				__rte_unused void *data)
-{
-	struct cmd_operate_specific_port_result *res = parsed_result;
-
-	if (!strcmp(res->name, "start"))
-		start_port(res->value);
-	else if (!strcmp(res->name, "stop"))
-		stop_port(res->value);
-	else if (!strcmp(res->name, "close"))
-		close_port(res->value);
-	else if (!strcmp(res->name, "reset"))
-		reset_port(res->value);
-	else
-		fprintf(stderr, "Unknown parameter\n");
-}
-
-cmdline_parse_token_string_t cmd_operate_specific_port_cmd =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_specific_port_result,
-							keyword, "port");
-cmdline_parse_token_string_t cmd_operate_specific_port_port =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_specific_port_result,
-						name, "start#stop#close#reset");
-cmdline_parse_token_num_t cmd_operate_specific_port_id =
-	TOKEN_NUM_INITIALIZER(struct cmd_operate_specific_port_result,
-							value, RTE_UINT8);
-
-cmdline_parse_inst_t cmd_operate_specific_port = {
-	.f = cmd_operate_specific_port_parsed,
-	.data = NULL,
-	.help_str = "port start|stop|close|reset <port_id>: Start/Stop/Close/Reset port_id",
-	.tokens = {
-		(void *)&cmd_operate_specific_port_cmd,
-		(void *)&cmd_operate_specific_port_port,
-		(void *)&cmd_operate_specific_port_id,
-		NULL,
-	},
-};
-
 /* *** enable port setup (after attach) via iterator or event *** */
 struct cmd_set_port_setup_on_result {
 	cmdline_fixed_string_t set;
@@ -1337,133 +1243,6 @@ cmdline_parse_inst_t cmd_set_port_setup_on = {
 		(void *)&cmd_set_port_setup_on_setup,
 		(void *)&cmd_set_port_setup_on_on,
 		(void *)&cmd_set_port_setup_on_mode,
-		NULL,
-	},
-};
-
-/* *** attach a specified port *** */
-struct cmd_operate_attach_port_result {
-	cmdline_fixed_string_t port;
-	cmdline_fixed_string_t keyword;
-	cmdline_multi_string_t identifier;
-};
-
-static void cmd_operate_attach_port_parsed(void *parsed_result,
-				__rte_unused struct cmdline *cl,
-				__rte_unused void *data)
-{
-	struct cmd_operate_attach_port_result *res = parsed_result;
-
-	if (!strcmp(res->keyword, "attach"))
-		attach_port(res->identifier);
-	else
-		fprintf(stderr, "Unknown parameter\n");
-}
-
-cmdline_parse_token_string_t cmd_operate_attach_port_port =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_attach_port_result,
-			port, "port");
-cmdline_parse_token_string_t cmd_operate_attach_port_keyword =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_attach_port_result,
-			keyword, "attach");
-cmdline_parse_token_string_t cmd_operate_attach_port_identifier =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_attach_port_result,
-			identifier, TOKEN_STRING_MULTI);
-
-cmdline_parse_inst_t cmd_operate_attach_port = {
-	.f = cmd_operate_attach_port_parsed,
-	.data = NULL,
-	.help_str = "port attach <identifier>: "
-		"(identifier: pci address or virtual dev name)",
-	.tokens = {
-		(void *)&cmd_operate_attach_port_port,
-		(void *)&cmd_operate_attach_port_keyword,
-		(void *)&cmd_operate_attach_port_identifier,
-		NULL,
-	},
-};
-
-/* *** detach a specified port *** */
-struct cmd_operate_detach_port_result {
-	cmdline_fixed_string_t port;
-	cmdline_fixed_string_t keyword;
-	portid_t port_id;
-};
-
-static void cmd_operate_detach_port_parsed(void *parsed_result,
-				__rte_unused struct cmdline *cl,
-				__rte_unused void *data)
-{
-	struct cmd_operate_detach_port_result *res = parsed_result;
-
-	if (!strcmp(res->keyword, "detach")) {
-		RTE_ETH_VALID_PORTID_OR_RET(res->port_id);
-		detach_port_device(res->port_id);
-	} else {
-		fprintf(stderr, "Unknown parameter\n");
-	}
-}
-
-cmdline_parse_token_string_t cmd_operate_detach_port_port =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_detach_port_result,
-			port, "port");
-cmdline_parse_token_string_t cmd_operate_detach_port_keyword =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_detach_port_result,
-			keyword, "detach");
-cmdline_parse_token_num_t cmd_operate_detach_port_port_id =
-	TOKEN_NUM_INITIALIZER(struct cmd_operate_detach_port_result,
-			port_id, RTE_UINT16);
-
-cmdline_parse_inst_t cmd_operate_detach_port = {
-	.f = cmd_operate_detach_port_parsed,
-	.data = NULL,
-	.help_str = "port detach <port_id>",
-	.tokens = {
-		(void *)&cmd_operate_detach_port_port,
-		(void *)&cmd_operate_detach_port_keyword,
-		(void *)&cmd_operate_detach_port_port_id,
-		NULL,
-	},
-};
-
-/* *** detach device by identifier *** */
-struct cmd_operate_detach_device_result {
-	cmdline_fixed_string_t device;
-	cmdline_fixed_string_t keyword;
-	cmdline_fixed_string_t identifier;
-};
-
-static void cmd_operate_detach_device_parsed(void *parsed_result,
-				__rte_unused struct cmdline *cl,
-				__rte_unused void *data)
-{
-	struct cmd_operate_detach_device_result *res = parsed_result;
-
-	if (!strcmp(res->keyword, "detach"))
-		detach_devargs(res->identifier);
-	else
-		fprintf(stderr, "Unknown parameter\n");
-}
-
-cmdline_parse_token_string_t cmd_operate_detach_device_device =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_detach_device_result,
-			device, "device");
-cmdline_parse_token_string_t cmd_operate_detach_device_keyword =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_detach_device_result,
-			keyword, "detach");
-cmdline_parse_token_string_t cmd_operate_detach_device_identifier =
-	TOKEN_STRING_INITIALIZER(struct cmd_operate_detach_device_result,
-			identifier, NULL);
-
-cmdline_parse_inst_t cmd_operate_detach_device = {
-	.f = cmd_operate_detach_device_parsed,
-	.data = NULL,
-	.help_str = "device detach <identifier>:"
-		"(identifier: pci address or virtual dev name)",
-	.tokens = {
-		(void *)&cmd_operate_detach_device_device,
-		(void *)&cmd_operate_detach_device_keyword,
-		(void *)&cmd_operate_detach_device_identifier,
 		NULL,
 	},
 };
@@ -5259,53 +5038,6 @@ cmdline_parse_inst_t cmd_representor_info = {
 		(void *)&cmd_representor_info_info,
 		(void *)&cmd_representor_info_pid,
 		(void *)&cmd_representor_info_keyword,
-		NULL,
-	},
-};
-
-
-/* *** SHOW DEVICE INFO *** */
-struct cmd_showdevice_result {
-	cmdline_fixed_string_t show;
-	cmdline_fixed_string_t device;
-	cmdline_fixed_string_t what;
-	cmdline_fixed_string_t identifier;
-};
-
-static void cmd_showdevice_parsed(void *parsed_result,
-				__rte_unused struct cmdline *cl,
-				__rte_unused void *data)
-{
-	struct cmd_showdevice_result *res = parsed_result;
-	if (!strcmp(res->what, "info")) {
-		if (!strcmp(res->identifier, "all"))
-			device_infos_display(NULL);
-		else
-			device_infos_display(res->identifier);
-	}
-}
-
-cmdline_parse_token_string_t cmd_showdevice_show =
-	TOKEN_STRING_INITIALIZER(struct cmd_showdevice_result, show,
-				 "show");
-cmdline_parse_token_string_t cmd_showdevice_device =
-	TOKEN_STRING_INITIALIZER(struct cmd_showdevice_result, device, "device");
-cmdline_parse_token_string_t cmd_showdevice_what =
-	TOKEN_STRING_INITIALIZER(struct cmd_showdevice_result, what,
-				 "info");
-cmdline_parse_token_string_t cmd_showdevice_identifier =
-	TOKEN_STRING_INITIALIZER(struct cmd_showdevice_result,
-			identifier, NULL);
-
-cmdline_parse_inst_t cmd_showdevice = {
-	.f = cmd_showdevice_parsed,
-	.data = NULL,
-	.help_str = "show device info <identifier>|all",
-	.tokens = {
-		(void *)&cmd_showdevice_show,
-		(void *)&cmd_showdevice_device,
-		(void *)&cmd_showdevice_what,
-		(void *)&cmd_showdevice_identifier,
 		NULL,
 	},
 };
@@ -10082,7 +9814,6 @@ cmdline_parse_ctx_t main_ctx[] = {
 	(cmdline_parse_inst_t *)&cmd_showeeprom,
 	(cmdline_parse_inst_t *)&cmd_showportall,
 	(cmdline_parse_inst_t *)&cmd_representor_info,
-	(cmdline_parse_inst_t *)&cmd_showdevice,
 	(cmdline_parse_inst_t *)&cmd_showcfg,
 	(cmdline_parse_inst_t *)&cmd_showfwdall,
 	(cmdline_parse_inst_t *)&cmd_start,
@@ -10137,11 +9868,6 @@ cmdline_parse_ctx_t main_ctx[] = {
 	(cmdline_parse_inst_t *)&cmd_set_xstats_hide_zero,
 	(cmdline_parse_inst_t *)&cmd_set_record_core_cycles,
 	(cmdline_parse_inst_t *)&cmd_set_record_burst_stats,
-	(cmdline_parse_inst_t *)&cmd_operate_port,
-	(cmdline_parse_inst_t *)&cmd_operate_specific_port,
-	(cmdline_parse_inst_t *)&cmd_operate_attach_port,
-	(cmdline_parse_inst_t *)&cmd_operate_detach_port,
-	(cmdline_parse_inst_t *)&cmd_operate_detach_device,
 	(cmdline_parse_inst_t *)&cmd_set_port_setup_on,
 	(cmdline_parse_inst_t *)&cmd_config_rx_tx,
 	(cmdline_parse_inst_t *)&cmd_config_rx_mode_flag,

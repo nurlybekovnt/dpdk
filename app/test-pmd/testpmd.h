@@ -812,7 +812,6 @@ void nic_stats_display(portid_t port_id);
 void nic_stats_clear(portid_t port_id);
 void nic_xstats_display(portid_t port_id);
 void nic_xstats_clear(portid_t port_id);
-void device_infos_display(const char *identifier);
 void port_infos_display(portid_t port_id);
 void port_summary_display(portid_t port_id);
 void port_eeprom_display(portid_t port_id);
@@ -855,7 +854,6 @@ int port_action_handle_query(portid_t port_id, uint32_t id);
 void update_age_action_context(const struct rte_flow_action *actions,
 		     struct port_flow *pf);
 int port_flow_destroy(portid_t port_id, uint32_t n, const uint32_t *rule);
-int port_flow_flush(portid_t port_id);
 int port_flow_dump(portid_t port_id, bool dump_all,
 			uint32_t rule, const char *file_name);
 int port_flow_query(portid_t port_id, uint32_t rule,
@@ -868,7 +866,6 @@ port_flow_locate_tunnel(uint16_t port_id, struct rte_flow_tunnel *tun);
 void port_flow_tunnel_list(portid_t port_id);
 void port_flow_tunnel_destroy(portid_t port_id, uint32_t tunnel_id);
 void port_flow_tunnel_create(portid_t port_id, const struct tunnel_ops *ops);
-int port_flow_isolate(portid_t port_id, int set);
 int port_meter_policy_add(portid_t port_id, uint32_t policy_id,
 		const struct rte_flow_action *actions);
 
@@ -915,9 +912,7 @@ int start_port(portid_t pid);
 void stop_port(portid_t pid);
 void close_port(portid_t pid);
 void reset_port(portid_t pid);
-void attach_port(char *identifier);
 void detach_devargs(char *identifier);
-void detach_port_device(portid_t port_id);
 int all_ports_stopped(void);
 int port_is_stopped(portid_t port_id);
 int port_is_started(portid_t port_id);

@@ -606,7 +606,6 @@ mempool_free_mp(struct rte_mempool *mp)
 }
 
 /* Forward function declarations */
-static void setup_attached_port(portid_t pi);
 static void check_all_ports_link_status(uint32_t port_mask);
 static int eth_event_callback(portid_t port_id,
 			      enum rte_eth_event_type type,
@@ -1735,16 +1734,6 @@ init_config(void)
 #endif
 }
 
-
-void
-reconfig(portid_t new_port_id, unsigned socket_id)
-{
-	/* Reconfiguration of Ethernet ports. */
-	init_config_port_offloads(new_port_id, socket_id);
-	init_port_config();
-}
-
-
 int
 init_fwd_streams(void)
 {
@@ -2557,17 +2546,6 @@ fail_ids_supp:
 	return -ENOMEM;
 }
 
-static void
-free_xstats_display_info(portid_t pi)
-{
-	if (!ports[pi].xstats_info.allocated)
-		return;
-	free(ports[pi].xstats_info.ids_supp);
-	free(ports[pi].xstats_info.prev_values);
-	free(ports[pi].xstats_info.curr_values);
-	ports[pi].xstats_info.allocated = false;
-}
-
 /** Fill helper structures for specified port to show extended statistics. */
 static void
 fill_xstats_display_info_for_port(portid_t pi)
@@ -2661,13 +2639,7 @@ start_port(portid_t pid)
 			port->need_reconfig = 0;
 
 			if (flow_isolate_all) {
-				int ret = port_flow_isolate(pi, 1);
-				if (ret) {
-					fprintf(stderr,
-						"Failed to apply isolated mode on port %d\n",
-						pi);
-					return -1;
-				}
+				TESTPMD_LOG(INFO, "[nadir] WARNING WARNING WARNING flow_isolate_all is true\r\n");
 			}
 			configure_rxtx_dump_callbacks(0);
 			printf("Configuring Port %d (socket %u)\n", pi,
@@ -2964,8 +2936,9 @@ stop_port(portid_t pid)
 			}
 		}
 
-		if (port->flow_list)
-			port_flow_flush(pi);
+		if (port->flow_list) {
+			TESTPMD_LOG(INFO, "[nadir] WARNING WARNING WARNING flow_list is not NULL\r\n");
+		}
 
 		if (eth_dev_stop_mp(pi) != 0)
 			RTE_LOG(ERR, EAL, "rte_eth_dev_stop failed for port %u\n",
@@ -2984,27 +2957,6 @@ stop_port(portid_t pid)
 	printf("Done\n");
 }
 
-static void
-remove_invalid_ports_in(portid_t *array, portid_t *total)
-{
-	portid_t i;
-	portid_t new_total = 0;
-
-	for (i = 0; i < *total; i++)
-		if (!port_id_is_invalid(array[i], DISABLED_WARN)) {
-			array[new_total] = array[i];
-			new_total++;
-		}
-	*total = new_total;
-}
-
-static void
-remove_invalid_ports(void)
-{
-	remove_invalid_ports_in(ports_ids, &nb_ports);
-	remove_invalid_ports_in(fwd_ports_ids, &nb_fwd_ports);
-	nb_cfg_ports = nb_fwd_ports;
-}
 
 void
 close_port(portid_t pid)
@@ -3035,15 +2987,11 @@ close_port(portid_t pid)
 		}
 
 		if (is_proc_primary()) {
-			port_flow_flush(pi);
 			port_flex_item_flush(pi);
 			rte_eth_dev_close(pi);
 		}
-
-		free_xstats_display_info(pi);
 	}
 
-	remove_invalid_ports();
 	printf("Done\n");
 }
 
@@ -3089,175 +3037,6 @@ reset_port(portid_t pid)
 	}
 
 	printf("Done\n");
-}
-
-void
-attach_port(char *identifier)
-{
-	portid_t pi;
-	struct rte_dev_iterator iterator;
-
-	printf("Attaching a new port...\n");
-
-	if (identifier == NULL) {
-		fprintf(stderr, "Invalid parameters are specified\n");
-		return;
-	}
-
-	if (rte_dev_probe(identifier) < 0) {
-		TESTPMD_LOG(ERR, "Failed to attach port %s\n", identifier);
-		return;
-	}
-
-	/* first attach mode: event */
-	if (setup_on_probe_event) {
-		/* new ports are detected on RTE_ETH_EVENT_NEW event */
-		for (pi = 0; pi < RTE_MAX_ETHPORTS; pi++)
-			if (ports[pi].port_status == RTE_PORT_HANDLING &&
-					ports[pi].need_setup != 0)
-				setup_attached_port(pi);
-		return;
-	}
-
-	/* second attach mode: iterator */
-	RTE_ETH_FOREACH_MATCHING_DEV(pi, identifier, &iterator) {
-		/* setup ports matching the devargs used for probing */
-		if (port_is_forwarding(pi))
-			continue; /* port was already attached before */
-		setup_attached_port(pi);
-	}
-}
-
-static void
-setup_attached_port(portid_t pi)
-{
-	unsigned int socket_id;
-	int ret;
-
-	socket_id = (unsigned)rte_eth_dev_socket_id(pi);
-	/* if socket_id is invalid, set to the first available socket. */
-	if (check_socket_id(socket_id) < 0)
-		socket_id = socket_ids[0];
-	reconfig(pi, socket_id);
-	ret = rte_eth_promiscuous_enable(pi);
-	if (ret != 0)
-		fprintf(stderr,
-			"Error during enabling promiscuous mode for port %u: %s - ignore\n",
-			pi, rte_strerror(-ret));
-
-	ports_ids[nb_ports++] = pi;
-	fwd_ports_ids[nb_fwd_ports++] = pi;
-	nb_cfg_ports = nb_fwd_ports;
-	ports[pi].need_setup = 0;
-	ports[pi].port_status = RTE_PORT_STOPPED;
-
-	printf("Port %d is attached. Now total ports is %d\n", pi, nb_ports);
-	printf("Done\n");
-}
-
-static void
-detach_device(struct rte_device *dev)
-{
-	portid_t sibling;
-
-	if (dev == NULL) {
-		fprintf(stderr, "Device already removed\n");
-		return;
-	}
-
-	printf("Removing a device...\n");
-
-	RTE_ETH_FOREACH_DEV_OF(sibling, dev) {
-		if (ports[sibling].port_status != RTE_PORT_CLOSED) {
-			if (ports[sibling].port_status != RTE_PORT_STOPPED) {
-				fprintf(stderr, "Port %u not stopped\n",
-					sibling);
-				return;
-			}
-			port_flow_flush(sibling);
-		}
-	}
-
-	if (rte_dev_remove(dev) < 0) {
-		TESTPMD_LOG(ERR, "Failed to detach device %s\n", dev->name);
-		return;
-	}
-	remove_invalid_ports();
-
-	printf("Device is detached\n");
-	printf("Now total ports is %d\n", nb_ports);
-	printf("Done\n");
-	return;
-}
-
-void
-detach_port_device(portid_t port_id)
-{
-	int ret;
-	struct rte_eth_dev_info dev_info;
-
-	if (port_id_is_invalid(port_id, ENABLED_WARN))
-		return;
-
-	if (ports[port_id].port_status != RTE_PORT_CLOSED) {
-		if (ports[port_id].port_status != RTE_PORT_STOPPED) {
-			fprintf(stderr, "Port not stopped\n");
-			return;
-		}
-		fprintf(stderr, "Port was not closed\n");
-	}
-
-	ret = eth_dev_info_get_print_err(port_id, &dev_info);
-	if (ret != 0) {
-		TESTPMD_LOG(ERR,
-			"Failed to get device info for port %d, not detaching\n",
-			port_id);
-		return;
-	}
-	detach_device(dev_info.device);
-}
-
-void
-detach_devargs(char *identifier)
-{
-	struct rte_dev_iterator iterator;
-	struct rte_devargs da;
-	portid_t port_id;
-
-	printf("Removing a device...\n");
-
-	memset(&da, 0, sizeof(da));
-	if (rte_devargs_parsef(&da, "%s", identifier)) {
-		fprintf(stderr, "cannot parse identifier\n");
-		return;
-	}
-
-	RTE_ETH_FOREACH_MATCHING_DEV(port_id, identifier, &iterator) {
-		if (ports[port_id].port_status != RTE_PORT_CLOSED) {
-			if (ports[port_id].port_status != RTE_PORT_STOPPED) {
-				fprintf(stderr, "Port %u not stopped\n",
-					port_id);
-				rte_eth_iterator_cleanup(&iterator);
-				rte_devargs_reset(&da);
-				return;
-			}
-			port_flow_flush(port_id);
-		}
-	}
-
-	if (rte_eal_hotplug_remove(da.bus->name, da.name) != 0) {
-		TESTPMD_LOG(ERR, "Failed to detach device %s(%s)\n",
-			    da.name, da.bus->name);
-		rte_devargs_reset(&da);
-		return;
-	}
-
-	remove_invalid_ports();
-
-	printf("Device %s is detached\n", identifier);
-	printf("Now total ports is %d\n", nb_ports);
-	printf("Done\n");
-	rte_devargs_reset(&da);
 }
 
 void
@@ -3392,39 +3171,6 @@ check_all_ports_link_status(uint32_t port_mask)
 	}
 }
 
-static void
-rmv_port_callback(void *arg)
-{
-	int need_to_start = 0;
-	int org_no_link_check = no_link_check;
-	portid_t port_id = (intptr_t)arg;
-	struct rte_eth_dev_info dev_info;
-	int ret;
-
-	RTE_ETH_VALID_PORTID_OR_RET(port_id);
-
-	if (!test_done && port_is_forwarding(port_id)) {
-		need_to_start = 1;
-		stop_packet_forwarding();
-	}
-	no_link_check = 1;
-	stop_port(port_id);
-	no_link_check = org_no_link_check;
-
-	ret = eth_dev_info_get_print_err(port_id, &dev_info);
-	if (ret != 0)
-		TESTPMD_LOG(ERR,
-			"Failed to get device info for port %d, not detaching\n",
-			port_id);
-	else {
-		struct rte_device *device = dev_info.device;
-		close_port(port_id);
-		detach_device(device); /* might be already removed or have more ports */
-	}
-	if (need_to_start)
-		start_packet_forwarding();
-}
-
 /* This function is used by the interrupt thread */
 static int
 eth_event_callback(portid_t port_id, enum rte_eth_event_type type, void *param,
@@ -3450,12 +3196,7 @@ eth_event_callback(portid_t port_id, enum rte_eth_event_type type, void *param,
 		ports[port_id].port_status = RTE_PORT_HANDLING;
 		break;
 	case RTE_ETH_EVENT_INTR_RMV:
-		if (port_id_is_invalid(port_id, DISABLED_WARN))
-			break;
-		if (rte_eal_alarm_set(100000,
-				rmv_port_callback, (void *)(intptr_t)port_id))
-			fprintf(stderr,
-				"Could not set up deferred device removal\n");
+		TESTPMD_LOG(INFO, "[nadir] WARNING WARNING WARNING WARNING RTE_ETH_EVENT_INTR_RMV\r\n");
 		break;
 	case RTE_ETH_EVENT_DESTROY:
 		ports[port_id].port_status = RTE_PORT_CLOSED;
@@ -3494,9 +3235,6 @@ static void
 dev_event_callback(const char *device_name, enum rte_dev_event_type type,
 			     __rte_unused void *arg)
 {
-	uint16_t port_id;
-	int ret;
-
 	if (type >= RTE_DEV_EVENT_MAX) {
 		fprintf(stderr, "%s called upon invalid event %d\n",
 			__func__, type);
@@ -3505,27 +3243,7 @@ dev_event_callback(const char *device_name, enum rte_dev_event_type type,
 
 	switch (type) {
 	case RTE_DEV_EVENT_REMOVE:
-		RTE_LOG(DEBUG, EAL, "The device: %s has been removed!\n",
-			device_name);
-		ret = rte_eth_dev_get_port_by_name(device_name, &port_id);
-		if (ret) {
-			RTE_LOG(ERR, EAL, "can not get port by device %s!\n",
-				device_name);
-			return;
-		}
-		/*
-		 * Because the user's callback is invoked in eal interrupt
-		 * callback, the interrupt callback need to be finished before
-		 * it can be unregistered when detaching device. So finish
-		 * callback soon and use a deferred removal to detach device
-		 * is need. It is a workaround, once the device detaching be
-		 * moved into the eal in the future, the deferred removal could
-		 * be deleted.
-		 */
-		if (rte_eal_alarm_set(100000,
-				rmv_port_callback, (void *)(intptr_t)port_id))
-			RTE_LOG(ERR, EAL,
-				"Could not set up deferred device removal\n");
+		TESTPMD_LOG(INFO, "[nadir] WARNING WARNING WARNING WARNING RTE_DEV_EVENT_REMOVE\r\n");
 		break;
 	case RTE_DEV_EVENT_ADD:
 		RTE_LOG(ERR, EAL, "The device: %s has been added!\n",
