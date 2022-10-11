@@ -232,18 +232,6 @@ uint16_t tx_pkt_seg_lengths[RTE_MAX_SEGS_PER_PKT] = {
 };
 uint8_t  tx_pkt_nb_segs = 1; /**< Number of segments in TXONLY packets */
 
-enum tx_pkt_split tx_pkt_split = TX_PKT_SPLIT_OFF;
-/**< Split policy for packets to TX. */
-
-uint8_t txonly_multi_flow;
-/**< Whether multiple flows are generated in TXONLY mode. */
-
-uint32_t tx_pkt_times_inter;
-/**< Timings for send scheduling in TXONLY mode, time between bursts. */
-
-uint32_t tx_pkt_times_intra;
-/**< Timings for send scheduling in TXONLY mode, time between packets. */
-
 uint16_t nb_pkt_per_burst = DEF_PKT_BURST; /**< Number of packets per burst. */
 uint16_t nb_pkt_flowgen_clones; /**< Number of Tx packet clones to send in flowgen mode. */
 int nb_flows_flowgen = 1024; /**< Number of flows in flowgen mode. */
@@ -2954,13 +2942,6 @@ stop_port(portid_t pid)
 			continue;
 		}
 
-		if (port_is_bonding_slave(pi)) {
-			fprintf(stderr,
-				"Please remove port %d from bonded device.\n",
-				pi);
-			continue;
-		}
-
 		port = &ports[pi];
 		if (port->port_status == RTE_PORT_STARTED)
 			port->port_status = RTE_PORT_HANDLING;
@@ -3047,13 +3028,6 @@ close_port(portid_t pid)
 			continue;
 		}
 
-		if (port_is_bonding_slave(pi)) {
-			fprintf(stderr,
-				"Please remove port %d from bonded device.\n",
-				pi);
-			continue;
-		}
-
 		port = &ports[pi];
 		if (port->port_status == RTE_PORT_CLOSED) {
 			fprintf(stderr, "Port %d is already closed\n", pi);
@@ -3099,13 +3073,6 @@ reset_port(portid_t pid)
 		if (port_is_forwarding(pi) != 0 && test_done == 0) {
 			fprintf(stderr,
 				"Please remove port %d from forwarding configuration.\n",
-				pi);
-			continue;
-		}
-
-		if (port_is_bonding_slave(pi)) {
-			fprintf(stderr,
-				"Please remove port %d from bonded device.\n",
 				pi);
 			continue;
 		}
@@ -3704,49 +3671,6 @@ init_port_config(void)
 		}
 	}
 }
-
-void set_port_slave_flag(portid_t slave_pid)
-{
-	struct rte_port *port;
-
-	port = &ports[slave_pid];
-	port->slave_flag = 1;
-}
-
-void clear_port_slave_flag(portid_t slave_pid)
-{
-	struct rte_port *port;
-
-	port = &ports[slave_pid];
-	port->slave_flag = 0;
-}
-
-uint8_t port_is_bonding_slave(portid_t slave_pid)
-{
-	struct rte_port *port;
-	struct rte_eth_dev_info dev_info;
-	int ret;
-
-	port = &ports[slave_pid];
-	ret = eth_dev_info_get_print_err(slave_pid, &dev_info);
-	if (ret != 0) {
-		TESTPMD_LOG(ERR,
-			"Failed to get device info for port id %d,"
-			"cannot determine if the port is a bonded slave",
-			slave_pid);
-		return 0;
-	}
-	if ((*dev_info.dev_flags & RTE_ETH_DEV_BONDED_SLAVE) || (port->slave_flag == 1))
-		return 1;
-	return 0;
-}
-
-const uint16_t vlan_tags[] = {
-		0,  1,  2,  3,  4,  5,  6,  7,
-		8,  9, 10, 11,  12, 13, 14, 15,
-		16, 17, 18, 19, 20, 21, 22, 23,
-		24, 25, 26, 27, 28, 29, 30, 31
-};
 
 static void
 init_port(void)

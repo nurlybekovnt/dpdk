@@ -389,49 +389,6 @@ tx_pkt_set_dynf(uint16_t port_id, __rte_unused uint16_t queue,
 	return nb_pkts;
 }
 
-void
-add_tx_dynf_callback(portid_t portid)
-{
-	struct rte_eth_dev_info dev_info;
-	uint16_t queue;
-	int ret;
-
-	if (port_id_is_invalid(portid, ENABLED_WARN))
-		return;
-
-	ret = eth_dev_info_get_print_err(portid, &dev_info);
-	if (ret != 0)
-		return;
-
-	for (queue = 0; queue < dev_info.nb_tx_queues; queue++)
-		if (!ports[portid].tx_set_dynf_cb[queue])
-			ports[portid].tx_set_dynf_cb[queue] =
-				rte_eth_add_tx_callback(portid, queue,
-							tx_pkt_set_dynf, NULL);
-}
-
-void
-remove_tx_dynf_callback(portid_t portid)
-{
-	struct rte_eth_dev_info dev_info;
-	uint16_t queue;
-	int ret;
-
-	if (port_id_is_invalid(portid, ENABLED_WARN))
-		return;
-
-	ret = eth_dev_info_get_print_err(portid, &dev_info);
-	if (ret != 0)
-		return;
-
-	for (queue = 0; queue < dev_info.nb_tx_queues; queue++)
-		if (ports[portid].tx_set_dynf_cb[queue]) {
-			rte_eth_remove_tx_callback(portid, queue,
-				ports[portid].tx_set_dynf_cb[queue]);
-			ports[portid].tx_set_dynf_cb[queue] = NULL;
-		}
-}
-
 int
 eth_dev_info_get_print_err(uint16_t port_id,
 					struct rte_eth_dev_info *dev_info)

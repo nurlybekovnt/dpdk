@@ -507,18 +507,6 @@ extern uint8_t  rx_pkt_nb_offs; /**< Number of specified offsets */
 extern uint16_t tx_pkt_length; /**< Length of TXONLY packet */
 extern uint16_t tx_pkt_seg_lengths[RTE_MAX_SEGS_PER_PKT]; /**< Seg. lengths */
 extern uint8_t  tx_pkt_nb_segs; /**< Number of segments in TX packets */
-extern uint32_t tx_pkt_times_intra;
-extern uint32_t tx_pkt_times_inter;
-
-enum tx_pkt_split {
-	TX_PKT_SPLIT_OFF,
-	TX_PKT_SPLIT_ON,
-	TX_PKT_SPLIT_RND,
-};
-
-extern enum tx_pkt_split tx_pkt_split;
-
-extern uint8_t txonly_multi_flow;
 
 extern uint32_t rxq_share;
 
@@ -844,16 +832,6 @@ void update_fwd_ports(portid_t new_pid);
 
 void set_fwd_eth_peer(portid_t port_id, char *peer_addr);
 
-void port_mtu_set(portid_t port_id, uint16_t mtu);
-void port_reg_bit_display(portid_t port_id, uint32_t reg_off, uint8_t bit_pos);
-void port_reg_bit_set(portid_t port_id, uint32_t reg_off, uint8_t bit_pos,
-		      uint8_t bit_v);
-void port_reg_bit_field_display(portid_t port_id, uint32_t reg_off,
-				uint8_t bit1_pos, uint8_t bit2_pos);
-void port_reg_bit_field_set(portid_t port_id, uint32_t reg_off,
-			    uint8_t bit1_pos, uint8_t bit2_pos, uint32_t value);
-void port_reg_display(portid_t port_id, uint32_t reg_off);
-void port_reg_set(portid_t port_id, uint32_t reg_off, uint32_t value);
 int port_action_handle_create(portid_t port_id, uint32_t id,
 			      const struct rte_flow_indir_action_conf *conf,
 			      const struct rte_flow_action *action);
@@ -906,20 +884,7 @@ void set_fwd_ports_mask(uint64_t portmask);
 void set_fwd_ports_number(uint16_t nb_pt);
 int port_is_forwarding(portid_t port_id);
 
-void rx_vlan_strip_set(portid_t port_id, int on);
-void rx_vlan_strip_set_on_queue(portid_t port_id, uint16_t queue_id, int on);
-
-void rx_vlan_filter_set(portid_t port_id, int on);
-void rx_vlan_all_filter_set(portid_t port_id, int on);
-void rx_vlan_qinq_strip_set(portid_t port_id, int on);
 int rx_vft_set(portid_t port_id, uint16_t vlan_id, int on);
-void vlan_extend_set(portid_t port_id, int on);
-void vlan_tpid_set(portid_t port_id, enum rte_vlan_type vlan_type,
-		   uint16_t tp_id);
-void tx_vlan_set(portid_t port_id, uint16_t vlan_id);
-void tx_qinq_set(portid_t port_id, uint16_t vlan_id, uint16_t vlan_id_outer);
-void tx_vlan_reset(portid_t port_id);
-void tx_vlan_pvid_set(portid_t port_id, uint16_t vlan_id, int on);
 
 void set_qmap(portid_t port_id, uint8_t is_rx, uint16_t queue_id, uint8_t map_value);
 
@@ -932,11 +897,6 @@ void set_rx_pkt_segments(unsigned int *seg_lengths, unsigned int nb_segs);
 void show_rx_pkt_segments(void);
 void set_rx_pkt_offsets(unsigned int *seg_offsets, unsigned int nb_offs);
 void show_rx_pkt_offsets(void);
-void set_tx_pkt_segments(unsigned int *seg_lengths, unsigned int nb_segs);
-void show_tx_pkt_segments(void);
-void set_tx_pkt_times(unsigned int *tx_times);
-void show_tx_pkt_times(void);
-void set_tx_pkt_split(const char *name);
 int parse_fec_mode(const char *name, uint32_t *fec_capa);
 void show_fec_capability(uint32_t num, struct rte_eth_fec_capa *speed_fec_capa);
 void set_nb_pkt_per_burst(uint16_t pkt_burst);
@@ -950,13 +910,7 @@ void stop_packet_forwarding(void);
 void dev_set_link_up(portid_t pid);
 void dev_set_link_down(portid_t pid);
 void init_port_config(void);
-void set_port_slave_flag(portid_t slave_pid);
-void clear_port_slave_flag(portid_t slave_pid);
-uint8_t port_is_bonding_slave(portid_t slave_pid);
 
-int init_port_dcb_config(portid_t pid, enum dcb_mode_enable dcb_mode,
-		     enum rte_eth_nb_tcs num_tcs,
-		     uint8_t pfc_en);
 int start_port(portid_t pid);
 void stop_port(portid_t pid);
 void close_port(portid_t pid);
@@ -1022,10 +976,6 @@ void mcast_addr_add(portid_t port_id, struct rte_ether_addr *mc_addr);
 void mcast_addr_remove(portid_t port_id, struct rte_ether_addr *mc_addr);
 void port_dcb_info_display(portid_t port_id);
 
-uint8_t *open_file(const char *file_path, uint32_t *size);
-int save_file(const char *file_path, uint8_t *buf, uint32_t size);
-int close_file(uint8_t *buf);
-
 void port_queue_region_info_display(portid_t port_id, void *buf);
 
 enum print_warning {
@@ -1067,10 +1017,6 @@ void remove_tx_md_callback(portid_t portid);
 uint16_t tx_pkt_set_dynf(uint16_t port_id, __rte_unused uint16_t queue,
 			 struct rte_mbuf *pkts[], uint16_t nb_pkts,
 			 __rte_unused void *user_param);
-void add_tx_dynf_callback(portid_t portid);
-void remove_tx_dynf_callback(portid_t portid);
-int update_mtu_from_frame_size(portid_t portid, uint32_t max_rx_pktlen);
-int update_jumbo_frame_offload(portid_t portid);
 void flex_item_create(portid_t port_id, uint16_t flex_id, const char *filename);
 void flex_item_destroy(portid_t port_id, uint16_t flex_id);
 void port_flex_item_flush(portid_t port_id);

@@ -186,10 +186,6 @@ usage(char* progname)
 	printf("  --hot-plug: enable hot plug for device.\n");
 	printf("  --vxlan-gpe-port=N: UPD port of tunnel VXLAN-GPE\n");
 	printf("  --geneve-parsed-port=N: UPD port to parse GENEVE tunnel protocol\n");
-#ifndef RTE_EXEC_ENV_WINDOWS
-	printf("  --mlockall: lock all memory\n");
-	printf("  --no-mlockall: do not lock all memory\n");
-#endif
 	printf("  --mp-alloc <native|anon|xmem|xmemhuge>: mempool allocation method.\n"
 	       "    native: use regular DPDK memory to create and populate mempool\n"
 	       "    anon: use regular DPDK memory to create and anonymous memory to populate mempool\n"
@@ -688,10 +684,6 @@ launch_args_parse(int argc, char** argv)
 		{ "hot-plug",			0, 0, 0 },
 		{ "vxlan-gpe-port",		1, 0, 0 },
 		{ "geneve-parsed-port",		1, 0, 0 },
-#ifndef RTE_EXEC_ENV_WINDOWS
-		{ "mlockall",			0, 0, 0 },
-		{ "no-mlockall",		0, 0, 0 },
-#endif
 		{ "mp-alloc",			1, 0, 0 },
 		{ "tx-ip",			1, 0, 0 },
 		{ "tx-udp",			1, 0, 0 },
@@ -1283,19 +1275,6 @@ launch_args_parse(int argc, char** argv)
 				else
 					rte_exit(EXIT_FAILURE, "bad rxpkts\n");
 			}
-			if (!strcmp(lgopts[opt_idx].name, "txpkts")) {
-				unsigned seg_lengths[RTE_MAX_SEGS_PER_PKT];
-				unsigned int nb_segs;
-
-				nb_segs = parse_item_list(optarg, "txpkt segments",
-						RTE_MAX_SEGS_PER_PKT, seg_lengths, 0);
-				if (nb_segs > 0)
-					set_tx_pkt_segments(seg_lengths, nb_segs);
-				else
-					rte_exit(EXIT_FAILURE, "bad txpkts\n");
-			}
-			if (!strcmp(lgopts[opt_idx].name, "txonly-multi-flow"))
-				txonly_multi_flow = 1;
 			if (!strcmp(lgopts[opt_idx].name, "rxq-share")) {
 				if (optarg == NULL) {
 					rxq_share = UINT32_MAX;
