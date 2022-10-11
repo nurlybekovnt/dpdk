@@ -573,9 +573,22 @@ static int
 eth_dev_configure_mp(uint16_t port_id, uint16_t nb_rx_q, uint16_t nb_tx_q,
 		      const struct rte_eth_conf *dev_conf)
 {
-	if (is_proc_primary())
+	char output[(dev_conf->rx_adv_conf.rss_conf.rss_key_len * 2) + 1];
+	char *ptr = &output[0];
+	int i;
+	for (i = 0; i < dev_conf->rx_adv_conf.rss_conf.rss_key_len; i++) {
+		ptr += sprintf(ptr, "%02X", dev_conf->rx_adv_conf.rss_conf.rss_key[i]);
+	}
+
+
+	if (is_proc_primary()) {
+		TESTPMD_LOG(INFO, "[nadir] rte_eth_dev_configure 577, port_id: %u, nb_rx_q: %u, nb_tx_q: %u, rss hf: %lu, rss key: %s, rss key len: %u\r\n", port_id, nb_rx_q, nb_tx_q,
+		dev_conf->rx_adv_conf.rss_conf.rss_hf,
+		output,
+		dev_conf->rx_adv_conf.rss_conf.rss_key_len);
 		return rte_eth_dev_configure(port_id, nb_rx_q, nb_tx_q,
 					dev_conf);
+	}
 	return 0;
 }
 
@@ -602,15 +615,6 @@ mempool_free_mp(struct rte_mempool *mp)
 {
 	if (is_proc_primary())
 		rte_mempool_free(mp);
-}
-
-static int
-eth_dev_set_mtu_mp(uint16_t port_id, uint16_t mtu)
-{
-	if (is_proc_primary())
-		return rte_eth_dev_set_mtu(port_id, mtu);
-
-	return 0;
 }
 
 /* Forward function declarations */
@@ -1542,7 +1546,10 @@ init_config_port_offloads(portid_t pid, uint32_t socket_id)
 	int ret;
 	int i;
 
+	TESTPMD_LOG(INFO, "[nadir] eth_rx_metadata_negoniate_mp\r\n");
 	eth_rx_metadata_negotiate_mp(pid);
+
+	TESTPMD_LOG(INFO, "[nadir] init_config_port_offloads\r\n");
 
 	port->dev_conf.txmode = tx_mode;
 	port->dev_conf.rxmode = rx_mode;
@@ -1692,6 +1699,7 @@ init_config(void)
 					 0 : socket_num, i);
 	}
 
+	TESTPMD_LOG(INFO, "[nadir] init_port_config 1696\r\n");
 	init_port_config();
 
 #ifdef RTE_LIB_GSO
@@ -1719,6 +1727,7 @@ init_config(void)
 #endif
 	}
 
+	TESTPMD_LOG(INFO, "[nadir] fwd_config_setup\r\n");
 	fwd_config_setup();
 
 #ifdef RTE_LIB_GRO
@@ -2227,9 +2236,11 @@ launch_packet_forwarding(lcore_function_t *pkt_fwd_on_lcore)
 void
 start_packet_forwarding(void)
 {
+	TESTPMD_LOG(INFO, "[nadir] start packet forwarding 2233\r\n");
 	port_fwd_begin_t port_fwd_begin;
 	unsigned int i;
 
+	TESTPMD_LOG(INFO, "[nadir] cur_fwd_eng->fwd_mode_name: %s\r\n", cur_fwd_eng->fwd_mode_name);
 	if (strcmp(cur_fwd_eng->fwd_mode_name, "rxonly") == 0 && !nb_rxq)
 		rte_exit(EXIT_FAILURE, "rxq are 0, cannot use rxonly fwd mode\n");
 
@@ -3627,47 +3638,11 @@ rxtx_port_config(portid_t pid)
 	}
 }
 
-/*
- * Helper function to set MTU from frame size
- *
- * port->dev_info should be set before calling this function.
- *
- * return 0 on success, negative on error
- */
-int
-update_mtu_from_frame_size(portid_t portid, uint32_t max_rx_pktlen)
-{
-	struct rte_port *port = &ports[portid];
-	uint32_t eth_overhead;
-	uint16_t mtu, new_mtu;
-
-	eth_overhead = get_eth_overhead(&port->dev_info);
-
-	if (rte_eth_dev_get_mtu(portid, &mtu) != 0) {
-		printf("Failed to get MTU for port %u\n", portid);
-		return -1;
-	}
-
-	new_mtu = max_rx_pktlen - eth_overhead;
-
-	if (mtu == new_mtu)
-		return 0;
-
-	if (eth_dev_set_mtu_mp(portid, new_mtu) != 0) {
-		fprintf(stderr,
-			"Failed to set MTU to %u for port %u\n",
-			new_mtu, portid);
-		return -1;
-	}
-
-	port->dev_conf.rxmode.mtu = new_mtu;
-
-	return 0;
-}
-
 void
 init_port_config(void)
 {
+	TESTPMD_LOG(INFO, "[nadir] init_port_config\r\n");
+
 	portid_t pid;
 	struct rte_port *port;
 	int ret, i;
@@ -3707,6 +3682,7 @@ init_port_config(void)
 			}
 		}
 
+		TESTPMD_LOG(INFO, "[nadir] rxtx_port_config 3713\r\n");
 		rxtx_port_config(pid);
 
 		ret = eth_macaddr_get_print_err(pid, &port->eth_addr);
@@ -3714,13 +3690,18 @@ init_port_config(void)
 			return;
 
 #if defined RTE_NET_IXGBE && defined RTE_LIBRTE_IXGBE_BYPASS
+		TESTPMD_LOG(INFO, "[nadir] rte_pmd_ixgbe_bypass_init\r\n");
 		rte_pmd_ixgbe_bypass_init(pid);
 #endif
 
-		if (lsc_interrupt && (*port->dev_info.dev_flags & RTE_ETH_DEV_INTR_LSC))
+		if (lsc_interrupt && (*port->dev_info.dev_flags & RTE_ETH_DEV_INTR_LSC)) {
 			port->dev_conf.intr_conf.lsc = 1;
-		if (rmv_interrupt && (*port->dev_info.dev_flags & RTE_ETH_DEV_INTR_RMV))
+			TESTPMD_LOG(INFO, "[nadir] intr_conf.lsc = 1\r\n");
+		}
+		if (rmv_interrupt && (*port->dev_info.dev_flags & RTE_ETH_DEV_INTR_RMV)) {
+			TESTPMD_LOG(INFO, "[nadir] intr_conf.rmv = 1\r\n");
 			port->dev_conf.intr_conf.rmv = 1;
+		}
 	}
 }
 
@@ -3766,183 +3747,6 @@ const uint16_t vlan_tags[] = {
 		16, 17, 18, 19, 20, 21, 22, 23,
 		24, 25, 26, 27, 28, 29, 30, 31
 };
-
-static  int
-get_eth_dcb_conf(portid_t pid, struct rte_eth_conf *eth_conf,
-		 enum dcb_mode_enable dcb_mode,
-		 enum rte_eth_nb_tcs num_tcs,
-		 uint8_t pfc_en)
-{
-	uint8_t i;
-	int32_t rc;
-	struct rte_eth_rss_conf rss_conf;
-
-	/*
-	 * Builds up the correct configuration for dcb+vt based on the vlan tags array
-	 * given above, and the number of traffic classes available for use.
-	 */
-	if (dcb_mode == DCB_VT_ENABLED) {
-		struct rte_eth_vmdq_dcb_conf *vmdq_rx_conf =
-				&eth_conf->rx_adv_conf.vmdq_dcb_conf;
-		struct rte_eth_vmdq_dcb_tx_conf *vmdq_tx_conf =
-				&eth_conf->tx_adv_conf.vmdq_dcb_tx_conf;
-
-		/* VMDQ+DCB RX and TX configurations */
-		vmdq_rx_conf->enable_default_pool = 0;
-		vmdq_rx_conf->default_pool = 0;
-		vmdq_rx_conf->nb_queue_pools =
-			(num_tcs ==  RTE_ETH_4_TCS ? RTE_ETH_32_POOLS : RTE_ETH_16_POOLS);
-		vmdq_tx_conf->nb_queue_pools =
-			(num_tcs ==  RTE_ETH_4_TCS ? RTE_ETH_32_POOLS : RTE_ETH_16_POOLS);
-
-		vmdq_rx_conf->nb_pool_maps = vmdq_rx_conf->nb_queue_pools;
-		for (i = 0; i < vmdq_rx_conf->nb_pool_maps; i++) {
-			vmdq_rx_conf->pool_map[i].vlan_id = vlan_tags[i];
-			vmdq_rx_conf->pool_map[i].pools =
-				1 << (i % vmdq_rx_conf->nb_queue_pools);
-		}
-		for (i = 0; i < RTE_ETH_DCB_NUM_USER_PRIORITIES; i++) {
-			vmdq_rx_conf->dcb_tc[i] = i % num_tcs;
-			vmdq_tx_conf->dcb_tc[i] = i % num_tcs;
-		}
-
-		/* set DCB mode of RX and TX of multiple queues */
-		eth_conf->rxmode.mq_mode =
-				(enum rte_eth_rx_mq_mode)
-					(rx_mq_mode & RTE_ETH_MQ_RX_VMDQ_DCB);
-		eth_conf->txmode.mq_mode = RTE_ETH_MQ_TX_VMDQ_DCB;
-	} else {
-		struct rte_eth_dcb_rx_conf *rx_conf =
-				&eth_conf->rx_adv_conf.dcb_rx_conf;
-		struct rte_eth_dcb_tx_conf *tx_conf =
-				&eth_conf->tx_adv_conf.dcb_tx_conf;
-
-		memset(&rss_conf, 0, sizeof(struct rte_eth_rss_conf));
-
-		rc = rte_eth_dev_rss_hash_conf_get(pid, &rss_conf);
-		if (rc != 0)
-			return rc;
-
-		rx_conf->nb_tcs = num_tcs;
-		tx_conf->nb_tcs = num_tcs;
-
-		for (i = 0; i < RTE_ETH_DCB_NUM_USER_PRIORITIES; i++) {
-			rx_conf->dcb_tc[i] = i % num_tcs;
-			tx_conf->dcb_tc[i] = i % num_tcs;
-		}
-
-		eth_conf->rxmode.mq_mode =
-				(enum rte_eth_rx_mq_mode)
-					(rx_mq_mode & RTE_ETH_MQ_RX_DCB_RSS);
-		eth_conf->rx_adv_conf.rss_conf = rss_conf;
-		eth_conf->txmode.mq_mode = RTE_ETH_MQ_TX_DCB;
-	}
-
-	if (pfc_en)
-		eth_conf->dcb_capability_en =
-				RTE_ETH_DCB_PG_SUPPORT | RTE_ETH_DCB_PFC_SUPPORT;
-	else
-		eth_conf->dcb_capability_en = RTE_ETH_DCB_PG_SUPPORT;
-
-	return 0;
-}
-
-int
-init_port_dcb_config(portid_t pid,
-		     enum dcb_mode_enable dcb_mode,
-		     enum rte_eth_nb_tcs num_tcs,
-		     uint8_t pfc_en)
-{
-	struct rte_eth_conf port_conf;
-	struct rte_port *rte_port;
-	int retval;
-	uint16_t i;
-
-	if (num_procs > 1) {
-		printf("The multi-process feature doesn't support dcb.\n");
-		return -ENOTSUP;
-	}
-	rte_port = &ports[pid];
-
-	/* retain the original device configuration. */
-	memcpy(&port_conf, &rte_port->dev_conf, sizeof(struct rte_eth_conf));
-
-	/*set configuration of DCB in vt mode and DCB in non-vt mode*/
-	retval = get_eth_dcb_conf(pid, &port_conf, dcb_mode, num_tcs, pfc_en);
-	if (retval < 0)
-		return retval;
-	port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_VLAN_FILTER;
-	/* remove RSS HASH offload for DCB in vt mode */
-	if (port_conf.rxmode.mq_mode == RTE_ETH_MQ_RX_VMDQ_DCB) {
-		port_conf.rxmode.offloads &= ~RTE_ETH_RX_OFFLOAD_RSS_HASH;
-		for (i = 0; i < nb_rxq; i++)
-			rte_port->rx_conf[i].offloads &=
-				~RTE_ETH_RX_OFFLOAD_RSS_HASH;
-	}
-
-	/* re-configure the device . */
-	retval = rte_eth_dev_configure(pid, nb_rxq, nb_rxq, &port_conf);
-	if (retval < 0)
-		return retval;
-
-	retval = eth_dev_info_get_print_err(pid, &rte_port->dev_info);
-	if (retval != 0)
-		return retval;
-
-	/* If dev_info.vmdq_pool_base is greater than 0,
-	 * the queue id of vmdq pools is started after pf queues.
-	 */
-	if (dcb_mode == DCB_VT_ENABLED &&
-	    rte_port->dev_info.vmdq_pool_base > 0) {
-		fprintf(stderr,
-			"VMDQ_DCB multi-queue mode is nonsensical for port %d.\n",
-			pid);
-		return -1;
-	}
-
-	/* Assume the ports in testpmd have the same dcb capability
-	 * and has the same number of rxq and txq in dcb mode
-	 */
-	if (dcb_mode == DCB_VT_ENABLED) {
-		if (rte_port->dev_info.max_vfs > 0) {
-			nb_rxq = rte_port->dev_info.nb_rx_queues;
-			nb_txq = rte_port->dev_info.nb_tx_queues;
-		} else {
-			nb_rxq = rte_port->dev_info.max_rx_queues;
-			nb_txq = rte_port->dev_info.max_tx_queues;
-		}
-	} else {
-		/*if vt is disabled, use all pf queues */
-		if (rte_port->dev_info.vmdq_pool_base == 0) {
-			nb_rxq = rte_port->dev_info.max_rx_queues;
-			nb_txq = rte_port->dev_info.max_tx_queues;
-		} else {
-			nb_rxq = (queueid_t)num_tcs;
-			nb_txq = (queueid_t)num_tcs;
-
-		}
-	}
-	rx_free_thresh = 64;
-
-	memcpy(&rte_port->dev_conf, &port_conf, sizeof(struct rte_eth_conf));
-
-	rxtx_port_config(pid);
-	/* VLAN filter */
-	rte_port->dev_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_VLAN_FILTER;
-	for (i = 0; i < RTE_DIM(vlan_tags); i++)
-		rx_vft_set(pid, vlan_tags[i], 1);
-
-	retval = eth_macaddr_get_print_err(pid, &rte_port->eth_addr);
-	if (retval != 0)
-		return retval;
-
-	rte_port->dcb_flag = 1;
-
-	/* Enter DCB configuration status */
-	dcb_config = 1;
-
-	return 0;
-}
 
 static void
 init_port(void)
@@ -4043,6 +3847,7 @@ main(int argc, char** argv)
 		rte_exit(EXIT_FAILURE, "Cannot register for ethdev events");
 
 #ifdef RTE_LIB_PDUMP
+	TESTPMD_LOG(INFO, "[nadir] initialize packet capture framework\r\n");
 	/* initialize packet capture framework */
 	rte_pdump_init();
 #endif
@@ -4057,8 +3862,10 @@ main(int argc, char** argv)
 		TESTPMD_LOG(WARNING, "No probed ethernet devices\n");
 
 	/* allocate port structures, and init them */
+	TESTPMD_LOG(INFO, "[nadir] init_port\r\n");
 	init_port();
 
+	TESTPMD_LOG(INFO, "[nadir] set default forward config\r\n");
 	set_def_fwd_config();
 	if (nb_lcores == 0)
 		rte_exit(EXIT_FAILURE, "No cores defined for forwarding\n"
@@ -4100,37 +3907,16 @@ main(int argc, char** argv)
 			"Warning: nb_rxq=%d enables RSS configuration, but nb_txq=%d will prevent to fully test it.\n",
 			nb_rxq, nb_txq);
 
+	TESTPMD_LOG(INFO, "[nadir] init_config\r\n");
 	init_config();
 
-	if (hot_plug) {
-		ret = rte_dev_hotplug_handle_enable();
-		if (ret) {
-			RTE_LOG(ERR, EAL,
-				"fail to enable hotplug handling.");
-			return -1;
-		}
-
-		ret = rte_dev_event_monitor_start();
-		if (ret) {
-			RTE_LOG(ERR, EAL,
-				"fail to start device event monitoring.");
-			return -1;
-		}
-
-		ret = rte_dev_event_callback_register(NULL,
-			dev_event_callback, NULL);
-		if (ret) {
-			RTE_LOG(ERR, EAL,
-				"fail  to register device event callback\n");
-			return -1;
-		}
-	}
 
 	if (!no_device_start && start_port(RTE_PORT_ALL) != 0)
 		rte_exit(EXIT_FAILURE, "Start ports failed\n");
 
 	/* set all ports to promiscuous mode by default */
 	RTE_ETH_FOREACH_DEV(port_id) {
+		TESTPMD_LOG(INFO, "[nadir] promiscuous enable\r\n");
 		ret = rte_eth_promiscuous_enable(port_id);
 		if (ret != 0)
 			fprintf(stderr,
@@ -4145,6 +3931,7 @@ main(int argc, char** argv)
 
 #ifdef RTE_LIB_LATENCYSTATS
 	if (latencystats_enabled != 0) {
+		TESTPMD_LOG(INFO, "[nadir] latencystats enabled\r\n");
 		int ret = rte_latencystats_init(1, NULL);
 		if (ret)
 			fprintf(stderr,
@@ -4158,6 +3945,7 @@ main(int argc, char** argv)
 	/* Setup bitrate stats */
 #ifdef RTE_LIB_BITRATESTATS
 	if (bitrate_enabled != 0) {
+		TESTPMD_LOG(INFO, "[nadir] stats bitrate create\r\n");
 		bitrate_data = rte_stats_bitrate_create();
 		if (bitrate_data == NULL)
 			rte_exit(EXIT_FAILURE,
@@ -4185,6 +3973,7 @@ main(int argc, char** argv)
 		f_quit = 0;
 
 		printf("No commandline core given, start packet forwarding\n");
+		TESTPMD_LOG(INFO, "[nadir] start packet forwarding 4201\r\n");
 		start_packet_forwarding();
 		if (stats_period != 0) {
 			uint64_t prev_time = 0, cur_time, diff_time = 0;

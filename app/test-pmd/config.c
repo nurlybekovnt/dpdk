@@ -1233,26 +1233,6 @@ port_reg_set(portid_t port_id, uint32_t reg_off, uint32_t reg_v)
 	display_port_reg_value(port_id, reg_off, reg_v);
 }
 
-void
-port_mtu_set(portid_t port_id, uint16_t mtu)
-{
-	struct rte_port *port = &ports[port_id];
-	int diag;
-
-	if (port_id_is_invalid(port_id, ENABLED_WARN))
-		return;
-
-	if (port->need_reconfig == 0) {
-		diag = rte_eth_dev_set_mtu(port_id, mtu);
-		if (diag != 0) {
-			fprintf(stderr, "Set MTU failed. diag=%d\n", diag);
-			return;
-		}
-	}
-
-	port->dev_conf.rxmode.mtu = mtu;
-}
-
 /* Generic flow management functions. */
 
 static struct port_flow_tunnel *
@@ -3165,6 +3145,7 @@ fwd_topology_tx_port_get(portid_t rxp)
 static void
 simple_fwd_config_setup(void)
 {
+	TESTPMD_LOG(INFO, "[nadir] simple fwd config setup 3168\r\n");
 	portid_t i;
 
 	cur_fwd_config.nb_fwd_ports = (portid_t) nb_fwd_ports;
@@ -3192,207 +3173,6 @@ simple_fwd_config_setup(void)
 		fwd_streams[i]->tx_queue  = 0;
 		fwd_streams[i]->peer_addr = fwd_streams[i]->tx_port;
 		fwd_streams[i]->retry_enabled = retry_enabled;
-	}
-}
-
-/**
- * For the RSS forwarding test all streams distributed over lcores. Each stream
- * being composed of a RX queue to poll on a RX port for input messages,
- * associated with a TX queue of a TX port where to send forwarded packets.
- */
-static void
-rss_fwd_config_setup(void)
-{
-	portid_t   rxp;
-	portid_t   txp;
-	queueid_t  rxq;
-	queueid_t  nb_q;
-	streamid_t  sm_id;
-	int start;
-	int end;
-
-	nb_q = nb_rxq;
-	if (nb_q > nb_txq)
-		nb_q = nb_txq;
-	cur_fwd_config.nb_fwd_lcores = (lcoreid_t) nb_fwd_lcores;
-	cur_fwd_config.nb_fwd_ports = nb_fwd_ports;
-	cur_fwd_config.nb_fwd_streams =
-		(streamid_t) (nb_q * cur_fwd_config.nb_fwd_ports);
-
-	if (cur_fwd_config.nb_fwd_streams < cur_fwd_config.nb_fwd_lcores)
-		cur_fwd_config.nb_fwd_lcores =
-			(lcoreid_t)cur_fwd_config.nb_fwd_streams;
-
-	/* reinitialize forwarding streams */
-	init_fwd_streams();
-
-	setup_fwd_config_of_each_lcore(&cur_fwd_config);
-
-	if (proc_id > 0 && nb_q % num_procs != 0)
-		printf("Warning! queue numbers should be multiple of processes, or packet loss will happen.\n");
-
-	/**
-	 * In multi-process, All queues are allocated to different
-	 * processes based on num_procs and proc_id. For example:
-	 * if supports 4 queues(nb_q), 2 processes(num_procs),
-	 * the 0~1 queue for primary process.
-	 * the 2~3 queue for secondary process.
-	 */
-	start = proc_id * nb_q / num_procs;
-	end = start + nb_q / num_procs;
-	rxp = 0;
-	rxq = start;
-	for (sm_id = 0; sm_id < cur_fwd_config.nb_fwd_streams; sm_id++) {
-		struct fwd_stream *fs;
-
-		fs = fwd_streams[sm_id];
-		txp = fwd_topology_tx_port_get(rxp);
-		fs->rx_port = fwd_ports_ids[rxp];
-		fs->rx_queue = rxq;
-		fs->tx_port = fwd_ports_ids[txp];
-		fs->tx_queue = rxq;
-		fs->peer_addr = fs->tx_port;
-		fs->retry_enabled = retry_enabled;
-		rxp++;
-		if (rxp < nb_fwd_ports)
-			continue;
-		rxp = 0;
-		rxq++;
-		if (rxq >= end)
-			rxq = start;
-	}
-}
-
-static uint16_t
-get_fwd_port_total_tc_num(void)
-{
-	struct rte_eth_dcb_info dcb_info;
-	uint16_t total_tc_num = 0;
-	unsigned int i;
-
-	for (i = 0; i < nb_fwd_ports; i++) {
-		(void)rte_eth_dev_get_dcb_info(fwd_ports_ids[i], &dcb_info);
-		total_tc_num += dcb_info.nb_tcs;
-	}
-
-	return total_tc_num;
-}
-
-/**
- * For the DCB forwarding test, each core is assigned on each traffic class.
- *
- * Each core is assigned a multi-stream, each stream being composed of
- * a RX queue to poll on a RX port for input messages, associated with
- * a TX queue of a TX port where to send forwarded packets. All RX and
- * TX queues are mapping to the same traffic class.
- * If VMDQ and DCB co-exist, each traffic class on different POOLs share
- * the same core
- */
-static void
-dcb_fwd_config_setup(void)
-{
-	struct rte_eth_dcb_info rxp_dcb_info, txp_dcb_info;
-	portid_t txp, rxp = 0;
-	queueid_t txq, rxq = 0;
-	lcoreid_t  lc_id;
-	uint16_t nb_rx_queue, nb_tx_queue;
-	uint16_t i, j, k, sm_id = 0;
-	uint16_t total_tc_num;
-	struct rte_port *port;
-	uint8_t tc = 0;
-	portid_t pid;
-	int ret;
-
-	/*
-	 * The fwd_config_setup() is called when the port is RTE_PORT_STARTED
-	 * or RTE_PORT_STOPPED.
-	 *
-	 * Re-configure ports to get updated mapping between tc and queue in
-	 * case the queue number of the port is changed. Skip for started ports
-	 * since modifying queue number and calling dev_configure need to stop
-	 * ports first.
-	 */
-	for (pid = 0; pid < nb_fwd_ports; pid++) {
-		if (port_is_started(pid) == 1)
-			continue;
-
-		port = &ports[pid];
-		ret = rte_eth_dev_configure(pid, nb_rxq, nb_txq,
-					    &port->dev_conf);
-		if (ret < 0) {
-			fprintf(stderr,
-				"Failed to re-configure port %d, ret = %d.\n",
-				pid, ret);
-			return;
-		}
-	}
-
-	cur_fwd_config.nb_fwd_lcores = (lcoreid_t) nb_fwd_lcores;
-	cur_fwd_config.nb_fwd_ports = nb_fwd_ports;
-	cur_fwd_config.nb_fwd_streams =
-		(streamid_t) (nb_rxq * cur_fwd_config.nb_fwd_ports);
-	total_tc_num = get_fwd_port_total_tc_num();
-	if (cur_fwd_config.nb_fwd_lcores > total_tc_num)
-		cur_fwd_config.nb_fwd_lcores = total_tc_num;
-
-	/* reinitialize forwarding streams */
-	init_fwd_streams();
-	sm_id = 0;
-	txp = 1;
-	/* get the dcb info on the first RX and TX ports */
-	(void)rte_eth_dev_get_dcb_info(fwd_ports_ids[rxp], &rxp_dcb_info);
-	(void)rte_eth_dev_get_dcb_info(fwd_ports_ids[txp], &txp_dcb_info);
-
-	for (lc_id = 0; lc_id < cur_fwd_config.nb_fwd_lcores; lc_id++) {
-		fwd_lcores[lc_id]->stream_nb = 0;
-		fwd_lcores[lc_id]->stream_idx = sm_id;
-		for (i = 0; i < RTE_ETH_MAX_VMDQ_POOL; i++) {
-			/* if the nb_queue is zero, means this tc is
-			 * not enabled on the POOL
-			 */
-			if (rxp_dcb_info.tc_queue.tc_rxq[i][tc].nb_queue == 0)
-				break;
-			k = fwd_lcores[lc_id]->stream_nb +
-				fwd_lcores[lc_id]->stream_idx;
-			rxq = rxp_dcb_info.tc_queue.tc_rxq[i][tc].base;
-			txq = txp_dcb_info.tc_queue.tc_txq[i][tc].base;
-			nb_rx_queue = txp_dcb_info.tc_queue.tc_rxq[i][tc].nb_queue;
-			nb_tx_queue = txp_dcb_info.tc_queue.tc_txq[i][tc].nb_queue;
-			for (j = 0; j < nb_rx_queue; j++) {
-				struct fwd_stream *fs;
-
-				fs = fwd_streams[k + j];
-				fs->rx_port = fwd_ports_ids[rxp];
-				fs->rx_queue = rxq + j;
-				fs->tx_port = fwd_ports_ids[txp];
-				fs->tx_queue = txq + j % nb_tx_queue;
-				fs->peer_addr = fs->tx_port;
-				fs->retry_enabled = retry_enabled;
-			}
-			fwd_lcores[lc_id]->stream_nb +=
-				rxp_dcb_info.tc_queue.tc_rxq[i][tc].nb_queue;
-		}
-		sm_id = (streamid_t) (sm_id + fwd_lcores[lc_id]->stream_nb);
-
-		tc++;
-		if (tc < rxp_dcb_info.nb_tcs)
-			continue;
-		/* Restart from TC 0 on next RX port */
-		tc = 0;
-		if (numa_support && (nb_fwd_ports <= (nb_ports >> 1)))
-			rxp = (portid_t)
-				(rxp + ((nb_ports >> 1) / nb_fwd_ports));
-		else
-			rxp++;
-		if (rxp >= nb_fwd_ports)
-			return;
-		/* get the dcb information on next RX and TX ports */
-		if ((rxp & 0x1) == 0)
-			txp = (portid_t) (rxp + 1);
-		else
-			txp = (portid_t) (rxp - 1);
-		rte_eth_dev_get_dcb_info(fwd_ports_ids[rxp], &rxp_dcb_info);
-		rte_eth_dev_get_dcb_info(fwd_ports_ids[txp], &txp_dcb_info);
 	}
 }
 
@@ -3455,9 +3235,7 @@ icmp_echo_config_setup(void)
 void
 fwd_config_setup(void)
 {
-	struct rte_port *port;
-	portid_t pt_id;
-	unsigned int i;
+	TESTPMD_LOG(INFO, "[nadir] fwd_config_setup 3459\r\n");
 
 	cur_fwd_config.fwd_eng = cur_fwd_eng;
 	if (strcmp(cur_fwd_eng->fwd_mode_name, "icmpecho") == 0) {
@@ -3465,29 +3243,7 @@ fwd_config_setup(void)
 		return;
 	}
 
-	if ((nb_rxq > 1) && (nb_txq > 1)){
-		if (dcb_config) {
-			for (i = 0; i < nb_fwd_ports; i++) {
-				pt_id = fwd_ports_ids[i];
-				port = &ports[pt_id];
-				if (!port->dcb_flag) {
-					fprintf(stderr,
-						"In DCB mode, all forwarding ports must be configured in this mode.\n");
-					return;
-				}
-			}
-			if (nb_fwd_lcores == 1) {
-				fprintf(stderr,
-					"In DCB mode,the nb forwarding cores should be larger than 1.\n");
-				return;
-			}
-
-			dcb_fwd_config_setup();
-		} else
-			rss_fwd_config_setup();
-	}
-	else
-		simple_fwd_config_setup();
+	simple_fwd_config_setup();
 }
 
 static const char *
@@ -4958,68 +4714,6 @@ fdir_get_infos(portid_t port_id)
 
 #endif /* RTE_NET_I40E || RTE_NET_IXGBE */
 
-void
-fdir_set_flex_mask(portid_t port_id, struct rte_eth_fdir_flex_mask *cfg)
-{
-	struct rte_port *port;
-	struct rte_eth_fdir_flex_conf *flex_conf;
-	int i, idx = 0;
-
-	port = &ports[port_id];
-	flex_conf = &port->dev_conf.fdir_conf.flex_conf;
-	for (i = 0; i < RTE_ETH_FLOW_MAX; i++) {
-		if (cfg->flow_type == flex_conf->flex_mask[i].flow_type) {
-			idx = i;
-			break;
-		}
-	}
-	if (i >= RTE_ETH_FLOW_MAX) {
-		if (flex_conf->nb_flexmasks < RTE_DIM(flex_conf->flex_mask)) {
-			idx = flex_conf->nb_flexmasks;
-			flex_conf->nb_flexmasks++;
-		} else {
-			fprintf(stderr,
-				"The flex mask table is full. Can not set flex mask for flow_type(%u).",
-				cfg->flow_type);
-			return;
-		}
-	}
-	rte_memcpy(&flex_conf->flex_mask[idx],
-			 cfg,
-			 sizeof(struct rte_eth_fdir_flex_mask));
-}
-
-void
-fdir_set_flex_payload(portid_t port_id, struct rte_eth_flex_payload_cfg *cfg)
-{
-	struct rte_port *port;
-	struct rte_eth_fdir_flex_conf *flex_conf;
-	int i, idx = 0;
-
-	port = &ports[port_id];
-	flex_conf = &port->dev_conf.fdir_conf.flex_conf;
-	for (i = 0; i < RTE_ETH_PAYLOAD_MAX; i++) {
-		if (cfg->type == flex_conf->flex_set[i].type) {
-			idx = i;
-			break;
-		}
-	}
-	if (i >= RTE_ETH_PAYLOAD_MAX) {
-		if (flex_conf->nb_payloads < RTE_DIM(flex_conf->flex_set)) {
-			idx = flex_conf->nb_payloads;
-			flex_conf->nb_payloads++;
-		} else {
-			fprintf(stderr,
-				"The flex payload table is full. Can not set flex payload for type(%u).",
-				cfg->type);
-			return;
-		}
-	}
-	rte_memcpy(&flex_conf->flex_set[idx],
-			 cfg,
-			 sizeof(struct rte_eth_flex_payload_cfg));
-
-}
 
 void
 set_vf_traffic(portid_t port_id, uint8_t is_rx, uint16_t vf, uint8_t on)
