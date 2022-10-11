@@ -562,6 +562,7 @@ eth_dev_configure_mp(uint16_t port_id, uint16_t nb_rx_q, uint16_t nb_tx_q,
 		      const struct rte_eth_conf *dev_conf)
 {
 	char output[(dev_conf->rx_adv_conf.rss_conf.rss_key_len * 2) + 1];
+	memset(output, '\0', (dev_conf->rx_adv_conf.rss_conf.rss_key_len * 2) + 1);
 	char *ptr = &output[0];
 	int i;
 	for (i = 0; i < dev_conf->rx_adv_conf.rss_conf.rss_key_len; i++) {

@@ -419,23 +419,6 @@ eth_dev_conf_get_print_err(uint16_t port_id, struct rte_eth_conf *dev_conf)
 }
 
 void
-eth_set_promisc_mode(uint16_t port, int enable)
-{
-	int ret;
-
-	if (enable)
-		ret = rte_eth_promiscuous_enable(port);
-	else
-		ret = rte_eth_promiscuous_disable(port);
-
-	if (ret != 0)
-		fprintf(stderr,
-			"Error during %s promiscuous mode for port %u: %s\n",
-			enable ? "enabling" : "disabling",
-			port, rte_strerror(-ret));
-}
-
-void
 eth_set_allmulticast_mode(uint16_t port, int enable)
 {
 	int ret;
