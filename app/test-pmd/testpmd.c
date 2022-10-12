@@ -561,20 +561,26 @@ static int
 eth_dev_configure_mp(uint16_t port_id, uint16_t nb_rx_q, uint16_t nb_tx_q,
 		      const struct rte_eth_conf *dev_conf)
 {
-	char output[(dev_conf->rx_adv_conf.rss_conf.rss_key_len * 2) + 1];
-	memset(output, '\0', (dev_conf->rx_adv_conf.rss_conf.rss_key_len * 2) + 1);
-	char *ptr = &output[0];
-	int i;
-	for (i = 0; i < dev_conf->rx_adv_conf.rss_conf.rss_key_len; i++) {
-		ptr += sprintf(ptr, "%02X", dev_conf->rx_adv_conf.rss_conf.rss_key[i]);
-	}
-
-
 	if (is_proc_primary()) {
-		TESTPMD_LOG(INFO, "[nadir] rte_eth_dev_configure 577, port_id: %u, nb_rx_q: %u, nb_tx_q: %u, rss hf: %lu, rss key: %s, rss key len: %u\r\n", port_id, nb_rx_q, nb_tx_q,
+		TESTPMD_LOG(INFO, "[nadir] 565 rte_eth_dev_configure: %u %u %u %u %u %u %u %u %lu %u %lu %u %u %u %u %u %u %u\r\n", 
+		port_id,
+		nb_rx_q,
+		nb_tx_q,
+		dev_conf->link_speeds,
+		dev_conf->lpbk_mode,
+		dev_conf->rxmode.mq_mode,
+		dev_conf->rxmode.max_lro_pkt_size,
+		dev_conf->rxmode.mtu,
+		dev_conf->rxmode.offloads,
+		dev_conf->rxmode.split_hdr_size,
 		dev_conf->rx_adv_conf.rss_conf.rss_hf,
-		output,
-		dev_conf->rx_adv_conf.rss_conf.rss_key_len);
+		dev_conf->rx_adv_conf.rss_conf.rss_key_len,
+		dev_conf->txmode.mq_mode,
+		dev_conf->fdir_conf.drop_queue,
+		dev_conf->fdir_conf.mode,
+		dev_conf->intr_conf.lsc,
+		dev_conf->intr_conf.rmv,
+		dev_conf->intr_conf.rxq);
 		return rte_eth_dev_configure(port_id, nb_rx_q, nb_tx_q,
 					dev_conf);
 	}
@@ -1101,8 +1107,13 @@ mbuf_pool_create(uint16_t mbuf_seg_size, unsigned nb_mbuf,
 	case MP_ALLOC_NATIVE:
 		{
 			/* wrapper to rte_mempool_create() */
-			TESTPMD_LOG(INFO, "preferred mempool ops selected: %s\n",
-					rte_mbuf_best_mempool_ops());
+			TESTPMD_LOG(INFO, "1104 preferred mempool ops selected: %s, %s, %u, %u, %u, %u\r\n",
+					rte_mbuf_best_mempool_ops(),
+					pool_name,
+					nb_mbuf,
+					mb_mempool_cache, 
+					mbuf_seg_size,
+					socket_id);
 			rte_mp = rte_pktmbuf_pool_create(pool_name, nb_mbuf,
 				mb_mempool_cache, 0, mbuf_seg_size, socket_id);
 			break;
@@ -1141,8 +1152,12 @@ mbuf_pool_create(uint16_t mbuf_seg_size, unsigned nb_mbuf,
 			if (heap_socket < 0)
 				rte_exit(EXIT_FAILURE, "Could not get external memory socket ID\n");
 
-			TESTPMD_LOG(INFO, "preferred mempool ops selected: %s\n",
-					rte_mbuf_best_mempool_ops());
+			TESTPMD_LOG(INFO, "1148 preferred mempool ops selected: %s, %s, %u, %u, %u\r\n",
+					rte_mbuf_best_mempool_ops(),
+					pool_name,
+					nb_mbuf,
+					mb_mempool_cache, 
+					mbuf_seg_size);
 			rte_mp = rte_pktmbuf_pool_create(pool_name, nb_mbuf,
 					mb_mempool_cache, 0, mbuf_seg_size,
 					heap_socket);
@@ -1160,8 +1175,12 @@ mbuf_pool_create(uint16_t mbuf_seg_size, unsigned nb_mbuf,
 				rte_exit(EXIT_FAILURE,
 					 "Can't create pinned data buffers\n");
 
-			TESTPMD_LOG(INFO, "preferred mempool ops selected: %s\n",
-					rte_mbuf_best_mempool_ops());
+			TESTPMD_LOG(INFO, "1175 preferred mempool ops selected: %s, %s, %u, %u, %u\r\n",
+					rte_mbuf_best_mempool_ops(),
+					pool_name,
+					nb_mbuf,
+					mb_mempool_cache, 
+					mbuf_seg_size);
 			rte_mp = rte_pktmbuf_pool_create_extbuf
 					(pool_name, nb_mbuf, mb_mempool_cache,
 					 0, mbuf_seg_size, socket_id,
@@ -1668,6 +1687,7 @@ init_config(void)
 	}
 
 	if (numa_support) {
+		TESTPMD_LOG(INFO, "[nadir] 1697 numa support is true\r\n");
 		uint8_t i, j;
 
 		for (i = 0; i < num_sockets; i++)
@@ -1677,6 +1697,7 @@ init_config(void)
 							  nb_mbuf_per_pool,
 							  socket_ids[i], j);
 	} else {
+		TESTPMD_LOG(INFO, "[nadir] 1697 numa support is false\r\n");
 		uint8_t i;
 
 		for (i = 0; i < mbuf_data_size_n; i++)
@@ -2177,6 +2198,7 @@ run_pkt_fwd_on_lcore(struct fwd_lcore *fc, packet_fwd_t pkt_fwd)
 static int
 start_pkt_forward_on_core(void *fwd_arg)
 {
+	TESTPMD_LOG(INFO, "[nadir] 2201 start_pkt_forward_on_core: %u\r\n", rte_lcore_id());
 	run_pkt_fwd_on_lcore((struct fwd_lcore *) fwd_arg,
 			     cur_fwd_config.fwd_eng->packet_fwd);
 	return 0;
@@ -2748,6 +2770,7 @@ start_port(portid_t pid)
 						return -1;
 					}
 
+					TESTPMD_LOG(INFO, "[nadir] 2776 rx_queue_setup\r\n");
 					diag = rx_queue_setup(pi, qi,
 					     port->nb_rx_desc[qi],
 					     rxring_numa[pi],
@@ -2763,6 +2786,18 @@ start_port(portid_t pid)
 							port->socket_id);
 						return -1;
 					}
+					TESTPMD_LOG(INFO, "[nadir] 2793 rx_queue_setup: %u %u %u %u %lu %u %u %u %u %u %u %u\r\n",
+						pi, qi,
+					    port->nb_rx_desc[qi],
+					    port->socket_id,
+						port->rx_conf[qi].offloads,
+						port->rx_conf[qi].rx_drop_en,
+						port->rx_conf[qi].rx_nseg,
+						port->rx_conf[qi].rx_thresh.hthresh,
+						port->rx_conf[qi].rx_thresh.pthresh,
+						port->rx_conf[qi].rx_thresh.wthresh,
+						port->rx_conf[qi].share_group,
+						port->rx_conf[qi].share_qid);
 					diag = rx_queue_setup(pi, qi,
 					     port->nb_rx_desc[qi],
 					     port->socket_id,
@@ -3177,6 +3212,7 @@ static int
 eth_event_callback(portid_t port_id, enum rte_eth_event_type type, void *param,
 		  void *ret_param)
 {
+	TESTPMD_LOG(INFO, "[nadir] eth_event_callback: %u\r\n", type);
 	RTE_SET_USED(param);
 	RTE_SET_USED(ret_param);
 
