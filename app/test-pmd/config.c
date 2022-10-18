@@ -2121,10 +2121,11 @@ simple_fwd_config_setup(void)
 	 * In the simple forwarding test, the number of forwarding cores
 	 * must be lower or equal to the number of forwarding ports.
 	 */
+	TESTPMD_LOG(INFO, "[nadir] 2124 simple_fwd_config_setup. cur_fwd_config.nb_fwd_lcores: %u, nb_fwd_lcores: %u\r\n", cur_fwd_config.nb_fwd_lcores, nb_fwd_lcores);
 	cur_fwd_config.nb_fwd_lcores = (lcoreid_t) nb_fwd_lcores;
-	if (cur_fwd_config.nb_fwd_lcores > cur_fwd_config.nb_fwd_ports)
-		cur_fwd_config.nb_fwd_lcores =
-			(lcoreid_t) cur_fwd_config.nb_fwd_ports;
+	// if (cur_fwd_config.nb_fwd_lcores > cur_fwd_config.nb_fwd_ports)
+	// 	cur_fwd_config.nb_fwd_lcores =
+	// 		(lcoreid_t) cur_fwd_config.nb_fwd_ports;
 	setup_fwd_config_of_each_lcore(&cur_fwd_config);
 
 	for (i = 0; i < cur_fwd_config.nb_fwd_ports; i++) {

@@ -2155,6 +2155,7 @@ flush_fwd_rx_queues(void)
 static void
 run_pkt_fwd_on_lcore(struct fwd_lcore *fc, packet_fwd_t pkt_fwd)
 {
+	TESTPMD_LOG(INFO, "[nadir] 2158 run_pkt_fwd_on_lcore, lcore: %u\r\n", rte_lcore_id());
 	struct fwd_stream **fsm;
 	streamid_t nb_fs;
 	streamid_t sm_id;
@@ -2216,10 +2217,12 @@ launch_packet_forwarding(lcore_function_t *pkt_fwd_on_lcore)
 	unsigned int lc_id;
 	int diag;
 
+	TESTPMD_LOG(INFO, "[nadir] cur_fwd_config.nb_fwd_lcores: %u\r\n", cur_fwd_config.nb_fwd_lcores);
 	for (i = 0; i < cur_fwd_config.nb_fwd_lcores; i++) {
 		lc_id = fwd_lcores_cpuids[i];
 		if ((interactive == 0) || (lc_id != rte_lcore_id())) {
 			fwd_lcores[i]->stopped = 0;
+			TESTPMD_LOG(INFO, "[nadir] 2223 rte_eal_remote_launch, rte_lcore_id: %u, lc_id: %u\r\n", rte_lcore_id(), lc_id);
 			diag = rte_eal_remote_launch(pkt_fwd_on_lcore,
 						     fwd_lcores[i], lc_id);
 			if (diag != 0)
