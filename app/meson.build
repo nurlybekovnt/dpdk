@@ -32,6 +32,7 @@ apps = [
         'test-mldev',
         'test-pipeline',
         'test-pmd',
+        'test-nadirbek',
         'test-regex',
         'test-sad',
         'test-security-perf',

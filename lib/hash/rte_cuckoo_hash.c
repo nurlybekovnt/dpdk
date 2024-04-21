@@ -783,6 +783,7 @@ rte_hash_cuckoo_insert_mw(const struct rte_hash *h,
 			 * key_idx is the guard variable for signature
 			 * and key.
 			 */
+			// XXX: why do we need to use atomic store here? We have already write-locked the hash table.
 			rte_atomic_store_explicit(&prim_bkt->key_idx[i],
 					 new_idx,
 					 rte_memory_order_release);
@@ -851,10 +852,12 @@ rte_hash_cuckoo_move_insert_mw(const struct rte_hash *h,
 		prev_bkt = prev_node->bkt;
 		prev_slot = curr_node->prev_slot;
 
+		// XXX: why should we calculate it again?
 		prev_alt_bkt_idx = get_alt_bucket_index(h,
 					prev_node->cur_bkt_idx,
 					prev_bkt->sig_current[prev_slot]);
 
+		// XXX: how is it possible?
 		if (unlikely(&h->buckets[prev_alt_bkt_idx]
 				!= curr_bkt)) {
 			/* revert it to empty, otherwise duplicated keys */
@@ -951,9 +954,11 @@ rte_hash_cuckoo_make_space_mw(const struct rte_hash *h,
 	tail->cur_bkt_idx = bucket_idx;
 
 	/* Cuckoo bfs Search */
+	// why -RTE_HASH_BUCKET_ENTRIES? нет смысла делать еще одну итерацию, потому
+	// что достигли конца
 	while (likely(tail != head && head <
-					queue + RTE_HASH_BFS_QUEUE_MAX_LEN -
-					RTE_HASH_BUCKET_ENTRIES)) {
+									  queue + RTE_HASH_BFS_QUEUE_MAX_LEN -
+										  RTE_HASH_BUCKET_ENTRIES)) {
 		curr_bkt = tail->bkt;
 		cur_idx = tail->cur_bkt_idx;
 		for (i = 0; i < RTE_HASH_BUCKET_ENTRIES; i++) {
